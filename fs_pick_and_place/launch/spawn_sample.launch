@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<launch>
+  <arg name="world"  default="exp"/>
+  <arg name="laser_model"  default="sick-571"/>
+  <arg name="camera_model"  default="orbbec-astra"/>
+  <arg name="has_screen"  default="False"/>
+  <arg name="multi" default=""/>
+  <arg name="gui" default="true"/>
+  <arg name="debug" default="false"/>
+  <arg name="public_sim" default="false"/>
+  <arg name="recording" default="false"/>
+  <arg name="extra_gazebo_args" default=""/>
+  <arg name="use_moveit_camera" default="false"/>
+  <arg name="base_type" default="pmb2"/> <!--onmi_base-->>
+
+  <env name="LC_NUMERIC" value="C" />
+  <!-- start up world -->
+  <arg name="paused" default="false"/>
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <!-- world_name is relative to directories in GAZEBO_RESOURCE_PATH-->
+    <arg name="world_name" value="$(find ProRobMan)/worlds/$(arg world).world"/>
+    <arg name="extra_gazebo_args" value="$(arg extra_gazebo_args)"/>
+    <arg name="gui" value="$(arg gui)"/>
+    <arg name="debug" value="$(arg debug)"/>
+    <arg name="recording" value="$(arg recording)"/>
+    <arg name="paused" value="$(arg paused)"/>
+  </include>
+
+  <include file="$(find panda_gazebo)/launch/put_robot_in_world.launch"/>
+
+
+  <!-- spawn cubes -->
+  <node pkg="ProRobMan" name="spawn_cubes" type="spawn_cubes.py" output="screen"/>
+  <!-- move head -->
+  <node pkg="ProRobMan" name="move_head" type="move_head.py" output="screen"/>
+
+
+
+
+
+  <!-- tf -->
+  <node pkg="tf" name="map2base_1" type="static_transform_publisher" args="1.0 1.0 1.0 0.0 0.0 0.0 base_footprint world 100"/>
+
+
+
+
+</launch>
