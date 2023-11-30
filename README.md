@@ -5,6 +5,11 @@ To launch the pick and place
 rosrun fs_pick_and_place pick_box.py
 ```
 
+To launch the point cloud algorithm
+```
+rosrun perception pc_perception.py
+```
+
 Sources:
 <ul>
 <li>[1] https://github.com/cdbharath/franka_panda/</li>
