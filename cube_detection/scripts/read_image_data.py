@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 import rospy
-from sensor_msgs.msg import Image, CameraInfo, PointCloud2
+from sensor_msgs.msg import Image, CameraInfo
 from cv_bridge import CvBridge
 from tf import TransformListener
-from geometry_msgs.msg import PointStamped
-import tf2_ros
+from geometry_msgs.msg import PointStamped, Point
+from visualization_msgs.msg import Marker
+from std_msgs.msg import Header, ColorRGBA
 import numpy as np
 import cv2
 import math
@@ -12,7 +13,7 @@ import matplotlib.pyplot as plt
 import time
 
 
-DEBUG = True
+DEBUG = False
 
 #How can i find the top 4 corners?
 
@@ -23,31 +24,36 @@ class CubeDetector:
         self.camera_K = None
         self.depth_K = None
 
+        self.target_frame = "/world"
+        self.camera_frame_id = None
+
         self.tf_listener = TransformListener()
 
         self.bridge = CvBridge()
         self.image_subscriber = rospy.Subscriber('/zed2/left/image_rect_color', Image, self.imageCallback)
         self.depth_subscriber = rospy.Subscriber('/zed2/depth/depth_registered', Image, self.depthCallback)
         self.depth_subscriber = rospy.Subscriber('/zed2/depth/camera_info', CameraInfo, self.depthInfoCallback)
-        self.camera_info_subscriber = rospy.Subscriber("/zed2/left/image_rect_color/camera_info", CameraInfo, self.cameraInfoCallback) 
+        self.camera_info_subscriber = rospy.Subscriber("/zed2/left/camera_info", CameraInfo, self.cameraInfoCallback) 
+        self.marker_publisher = rospy.Publisher('cube_markers', Marker, queue_size=10)
+        
         #self.point_cloud_subscriber = rospy.Subscriber("/zed2/point_cloud/cloud_registered", PointCloud2, self.pointCloudCallback)       
         #self.runprocessing()
         #self.ts = message_filters.TimeSynchronizer([self.image_subscriber, self.depth_subscriber], 10)
         #self.ts.registerCallback(self.tsCallback)
-    def depthInfoCallback(self, msg):
-        self.depth_K = np.array(msg.K).reshape(3,3)
+
+    
 
 
     def pixel_to_camera_frame(self, positions, depths):
         # Camera matrix
         points_camera = []
-        K = np.reshape(self.camera_K, (3, 3))
+        
         for position, depth in zip(positions, depths):
         # homogeneous pixel coordinates
             uv_h = np.array([position[0, 0], position[0, 1], 1.0])
 
         # inverse of camera matrix
-            K_inv = np.linalg.inv(K)
+            K_inv = np.linalg.inv(self.camera_K)
 
         # 3D coordinates of point in camera frame
             points_camera.append(np.dot(K_inv, uv_h) * depth)
@@ -72,8 +78,9 @@ class CubeDetector:
             return None
 
     def preprocessing_image(self, image):
-        #todo maybe
-        return image
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        _, thresh = cv2.threshold(gray, 0 , 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        return thresh
 
     def edge_detection(self, image):
         edges = cv2.Canny(image, 50, 150)
@@ -95,7 +102,7 @@ class CubeDetector:
             #obere 4 kanten finden?
 
             #if (len(edges) >= 4) and (len(edges) <= 7) and cv2.isContourConvex(edges) and abs(cv2.contourArea(contour)) > 500:
-            if (len(edges) >= 4) and (len(edges) <= 7):
+            if (len(edges) >= 4) and (len(edges) <= 7) and cv2.isContourConvex(edges):
                 depth_values = [self.depth[y, x] for [[x, y]] in edges]
                 depths = self.calc_depth(depth_values)
                 average_depth = sum(depth_values) / len(depth_values)
@@ -139,6 +146,9 @@ class CubeDetector:
                 detected_cubes = self.find_cubes(contours)
 
                 if (DEBUG):
+                    plt.imshow(preprocessed_image)
+                    plt.title('Threshold Image')
+                    plt.show()
                     plt.imshow(self.cv_image)
                     plt.title('Detected Cubes')
 
@@ -160,11 +170,14 @@ class CubeDetector:
 
                     Points_camera_frame = self.pixel_to_camera_frame(detected_cube["edges"], detected_cube["depths"])
                     
-                    transformed_positions = self.transform_points(Points_camera_frame, '/left_camera_link_optical', '/world')
-                    print(f"Cube {index} in world frame: {transformed_positions}")
+                    transformed_positions = self.transform_points(Points_camera_frame, self.camera_frame_id, self.target_frame)
+                    # print(f"Cube {index} in world frame: {transformed_positions}")
                         #print(f"cube {index}: {detected_cube['position']}")
                         #cv2.drawContours(self.cv_image, detected_cube["contour"], -1, colors[index], 3)
-                
+
+                    #transformed_positions = self.transform_points(Points_camera_frame, '/left_camera_link_optical', '/world')
+                    self.publish_markers(transformed_positions)
+
                 if (DEBUG):
                     plt.legend()
                     plt.show()
@@ -183,9 +196,15 @@ class CubeDetector:
             except Exception as e:
                 print(e)
 
+    def depthInfoCallback(self, msg):
+        self.depth_K = np.array(msg.K).reshape(3,3)
 
     def cameraInfoCallback(self, msg):
-        self.camera_K = msg.K
+        try:
+            self.camera_K = np.array(msg.K).reshape(3,3)
+            self.camera_frame_id = msg.header.frame_id
+        except Exception as e:
+            print(e)
 
     def imageCallback(self, image_msg):
         try:
@@ -202,6 +221,24 @@ class CubeDetector:
 
         except Exception as e:
             print(e)
+
+
+    def publish_markers(self, transformed_positions):
+        marker = Marker()
+        marker.header.frame_id = "world"  # oder Ihr Referenz-Koordinatensystem
+        marker.type = marker.POINTS
+        marker.action = marker.ADD
+        marker.scale.x = 0.02
+        marker.scale.y = 0.02
+        marker.color = ColorRGBA(1.0, 0.0, 0.0, 1.0)  # Farbe Rot
+
+        for pos in transformed_positions:
+            p = Point()
+            p.x, p.y, p.z = pos.point.x, pos.point.y, pos.point.z
+            marker.points.append(p)
+
+        self.marker_publisher.publish(marker)
+
 
 
 def main():
