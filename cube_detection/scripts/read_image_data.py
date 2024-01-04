@@ -71,6 +71,7 @@ class CubeDetector:
                 stamped_point.header.stamp = rospy.Time(0)
                 stamped_point.point.x = point[0]
                 stamped_point.point.y = point[1]
+                stamped_point.point.z = point[2]
                 transformed_points.append(self.tf_listener.transformPoint(target_frame, stamped_point))
             return transformed_points
         except Exception as e:
