@@ -4,7 +4,7 @@ from sensor_msgs.msg import Image, CameraInfo
 from cv_bridge import CvBridge
 from tf import TransformListener
 from geometry_msgs.msg import PointStamped, Point
-from visualization_msgs.msg import Marker
+from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import Header, ColorRGBA
 import numpy as np
 import cv2
@@ -13,34 +13,54 @@ import matplotlib.pyplot as plt
 import time
 
 
-DEBUG = False
+DEBUG = True
 
 #How can i find the top 4 corners?
+
+class Cube:
+    def __init__(self, cube_id, edges, position, points_camera_frame):
+        self.cube_id = cube_id
+        self.edges = edges
+        self.position = position
+        self.points_camera_frame = points_camera_frame
+        self.color = list(np.random.choice(range(256),size=3))
+
+    def update_edges(self, edges):
+        self.edges = edges
+
+    def update_position(self, new_position):
+        self.position = new_position
+
+    def distance_to(self, other_position):
+        return np.linalg.norm(np.array(self.position) - np.array(other_position))
+
 
 class CubeDetector:
     def __init__(self):
         self.cv_image = None
-        self.depth = None
         self.camera_K = None
+
+        self.depth = None
         self.depth_K = None
 
-        self.target_frame = "/world"
+        self.target_frame = "world"
         self.camera_frame_id = None
-
         self.tf_listener = TransformListener()
 
-        self.bridge = CvBridge()
-        self.image_subscriber = rospy.Subscriber('/zed2/left/image_rect_color', Image, self.imageCallback)
-        self.depth_subscriber = rospy.Subscriber('/zed2/depth/depth_registered', Image, self.depthCallback)
-        self.depth_subscriber = rospy.Subscriber('/zed2/depth/camera_info', CameraInfo, self.depthInfoCallback)
-        self.camera_info_subscriber = rospy.Subscriber("/zed2/left/camera_info", CameraInfo, self.cameraInfoCallback) 
-        self.marker_publisher = rospy.Publisher('cube_markers', Marker, queue_size=10)
-        
-        #self.point_cloud_subscriber = rospy.Subscriber("/zed2/point_cloud/cloud_registered", PointCloud2, self.pointCloudCallback)       
-        #self.runprocessing()
-        #self.ts = message_filters.TimeSynchronizer([self.image_subscriber, self.depth_subscriber], 10)
-        #self.ts.registerCallback(self.tsCallback)
+        self.cubes = []
 
+        self.bridge = CvBridge()
+        
+        # camera subscriber
+        self.image_subscriber = rospy.Subscriber('/zed2/left/image_rect_color', Image, self.imageCallback)
+        self.camera_info_subscriber = rospy.Subscriber("/zed2/left/camera_info", CameraInfo, self.cameraInfoCallback) 
+
+        #depth subscriber
+        self.depth_subscriber = rospy.Subscriber('/zed2/depth/depth_registered', Image, self.depthCallback)
+        self.depth_info_subscriber = rospy.Subscriber('/zed2/depth/camera_info', CameraInfo, self.depthInfoCallback)
+        
+        # visualization publisher
+        self.marker_array_publisher = rospy.Publisher('cube_markers', MarkerArray, queue_size=10)
     
 
 
@@ -64,6 +84,7 @@ class CubeDetector:
 
     def transform_points(self, points, source_frame, target_frame):
         try:
+            i = 0
             transformed_points = []
             for point in points:
                 stamped_point = PointStamped()
@@ -72,7 +93,9 @@ class CubeDetector:
                 stamped_point.point.x = point[0]
                 stamped_point.point.y = point[1]
                 stamped_point.point.z = point[2]
-                transformed_points.append(self.tf_listener.transformPoint(target_frame, stamped_point))
+                transformed_points.append(self.tf_listener.transformPoint("/world", stamped_point))
+                print(f"transformed z: {transformed_points[i].point.z}")
+                i =+ 1
             return transformed_points
         except Exception as e:
             print(e)
@@ -88,7 +111,7 @@ class CubeDetector:
         return edges
     
     def calc_depth(self, depth_values):
-        return depth_values
+        return np.abs(depth_values)
         #return np.multiply(depth_values, self.depth_K[0, 0])
 
 
@@ -106,6 +129,7 @@ class CubeDetector:
             if (len(edges) >= 4) and (len(edges) <= 7) and cv2.isContourConvex(edges):
                 depth_values = [self.depth[y, x] for [[x, y]] in edges]
                 depths = self.calc_depth(depth_values)
+                print(f"depth: {depths}")
                 average_depth = sum(depth_values) / len(depth_values)
     
                 M = cv2.moments(edges)
@@ -125,6 +149,37 @@ class CubeDetector:
                 }) 
 
         return detected_cubes
+    
+    def match_or_create_cube(self, edges, middle, points_camera_frame, threshold= 0.1):
+        new_cube = True
+        for cube in self.cubes:
+            print(f"Cube {cube.cube_id} distance: {cube.distance_to(middle)}")
+            if cube.distance_to(middle) < threshold:
+                cube.update_edges(edges)
+                cube.update_position(middle)
+                new_cube = False
+                
+        if (new_cube == True):
+            # neuer Würfel
+            new_id = len(self.cubes) + 1
+            new_cube = Cube(new_id, edges, middle, points_camera_frame)
+            self.cubes.append(new_cube)
+
+    def middle_of_cube(self, positions):
+        # Berechnet den Mittelpunkt eines Würfels anhand seiner Eckpunkte
+        if len(positions) == 0:
+            return None
+
+        sum_x = 0.0
+        sum_y = 0.0
+        sum_z = 0.0
+        for point in positions:
+            sum_x += point.point.x
+            sum_y += point.point.y
+            sum_z += point.point.z
+
+        num_points = len(positions)
+        return (sum_x / num_points, sum_y / num_points, sum_z / num_points)
 
     def process_images(self):
         if self.cv_image is not None and self.depth is not None:
@@ -135,54 +190,49 @@ class CubeDetector:
 
                 contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-                #if (DEBUG):
-                 #   img_copy = self.cv_image.copy()
-                  #  cv2.drawContours(img_copy, contours, -1, (0,255,0), 3)
-                   # cv2.imshow("contours", img_copy)
-                    #cv2.waitKey(0)
-
-                #for debugging
-                colors = [(255,0,0), (0,255,0), (0,0,255), (255,255,0), (0,255,255)]
-
                 detected_cubes = self.find_cubes(contours)
 
-                if (DEBUG):
-                    plt.imshow(preprocessed_image)
-                    plt.title('Threshold Image')
-                    plt.show()
-                    plt.imshow(self.cv_image)
-                    plt.title('Detected Cubes')
+                #if (DEBUG):
+                    #plt.imshow(edges, cmap='gray')
+                    #plt.title('Threshold Image')
+                    #plt.show()
+                    #plt.imshow(self.cv_image)
+                    #plt.title('Detected Cubes')
 
                 
                 for index, detected_cube in enumerate(detected_cubes):
+                
+                    points_camera_frame = self.pixel_to_camera_frame(detected_cube["edges"], detected_cube["depths"])
                     
-                    if (DEBUG):
-                        print(f"detected cubes: {len(detected_cubes)}")
-                        
-                        #img_copy = self.cv_image.copy()
-                        #img = cv2.circle(img_copy, detected_cube["position"], radius=1, color=(0,0,255), thickness=-1)
-                        #cv2.imshow("position", img)
-                        #cv2.waitKey(0)
-
-                        plt.scatter(detected_cube['edges'][:, 0, 0], detected_cube['edges'][:, 0, 1], c='blue', marker='x', label=f'Cube {index} contour')
-                        #plt.scatter(detected_cube['position'][0], detected_cube['position'][1], c='red', marker='x', label=f'Cube {index} centroid')
-
-
-
-                    Points_camera_frame = self.pixel_to_camera_frame(detected_cube["edges"], detected_cube["depths"])
+                    transformed_positions = self.transform_points(points_camera_frame, self.camera_frame_id, self.target_frame)
                     
-                    transformed_positions = self.transform_points(Points_camera_frame, self.camera_frame_id, self.target_frame)
+                    position = self.middle_of_cube(transformed_positions)
+
+                    self.match_or_create_cube(transformed_positions, position, points_camera_frame)
+                    
+
                     # print(f"Cube {index} in world frame: {transformed_positions}")
                         #print(f"cube {index}: {detected_cube['position']}")
-                        #cv2.drawContours(self.cv_image, detected_cube["contour"], -1, colors[index], 3)
+                    cv2.drawContours(self.cv_image, [detected_cube['edges']], -1, (0, 255, 0), 2)
+                    M = cv2.moments(detected_cube['edges'])
+                    if M["m00"] != 0:
+                        cx = int(M["m10"] / M["m00"])
+                        cy = int(M["m01"] / M["m00"])
+                        text = f"Cube {index + 1}"
+                        cv2.putText(self.cv_image, text, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
                     #transformed_positions = self.transform_points(Points_camera_frame, '/left_camera_link_optical', '/world')
-                    self.publish_markers(transformed_positions)
+                    #self.publish_markers(transformed_positions)
+
+                self.publish_cubes()
 
                 if (DEBUG):
-                    plt.legend()
+                    plt.imshow(cv2.cvtColor(self.cv_image, cv2.COLOR_BGR2RGB))
+                    plt.title('Detected Cubes/Contours')
                     plt.show()
-                    time.sleep(1000)
+                    #plt.legend()
+                    #plt.show()
+                    #time.sleep(1000)
                     #plt.imshow(self.cv_image)
                     #plt.title('Detected Cubes with Centroids')
 
@@ -223,6 +273,49 @@ class CubeDetector:
         except Exception as e:
             print(e)
 
+
+    def publish_cubes(self):
+        marker_array = MarkerArray()
+
+        for cube in self.cubes:
+            # Point-Marker für den Würfel
+            point_marker = Marker()
+            point_marker.header.frame_id = self.target_frame
+            point_marker.id = cube.cube_id
+            point_marker.type = Marker.POINTS
+            point_marker.action = Marker.ADD
+            point_marker.pose.orientation.w = 1.0
+            point_marker.scale.x = 0.02
+            point_marker.scale.y = 0.02
+            point_marker.color = ColorRGBA(*[float(c) / 255.0 for c in cube.color], 1.0)
+
+            # Position des Würfels
+            p = Point()
+            p.x, p.y, p.z = cube.position[0], cube.position[1], cube.position[2]
+            point_marker.points.append(p)
+
+            for pos in cube.edges:
+                p = Point()
+                p.x, p.y, p.z = pos.point.x, pos.point.y, pos.point.z
+                point_marker.points.append(p)
+
+            marker_array.markers.append(point_marker)
+
+            # Text-Marker für die ID und Koordinaten des Würfels
+            text_marker = Marker()
+            text_marker.header.frame_id = self.target_frame
+            text_marker.id = cube.cube_id + 1000
+            text_marker.type = Marker.TEXT_VIEW_FACING
+            text_marker.action = Marker.ADD
+            text_marker.pose.position = Point(p.x, p.y, p.z + 0.1)  # Leicht über dem Punkt
+            text_marker.scale.z = 0.02
+            text_marker.color = ColorRGBA(*[float(c) / 255.0 for c in cube.color], 1.0)
+            text_marker.text = f"Cube {cube.cube_id}: ({p.x:.2f}, {p.y:.2f}, {p.z:.2f})"
+            print(f"Cube {cube.cube_id}: ({p.x:.2f}, {p.y:.2f}, {p.z:.2f})")
+
+            marker_array.markers.append(text_marker)
+
+        self.marker_array_publisher.publish(marker_array)
 
     def publish_markers(self, transformed_positions):
         marker = Marker()
