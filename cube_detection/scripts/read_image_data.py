@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import time
 
 
-DEBUG = False
+DEBUG = True
 
 #How can i find the top 4 corners?
 
@@ -24,16 +24,16 @@ class CubeDetector:
         self.camera_K = None
         self.depth_K = None
 
-        self.target_frame = "/world"
+        self.target_frame = "/map"
         self.camera_frame_id = None
 
         self.tf_listener = TransformListener()
 
         self.bridge = CvBridge()
-        self.image_subscriber = rospy.Subscriber('/zed2/left/image_rect_color', Image, self.imageCallback)
-        self.depth_subscriber = rospy.Subscriber('/zed2/depth/depth_registered', Image, self.depthCallback)
-        self.depth_subscriber = rospy.Subscriber('/zed2/depth/camera_info', CameraInfo, self.depthInfoCallback)
-        self.camera_info_subscriber = rospy.Subscriber("/zed2/left/camera_info", CameraInfo, self.cameraInfoCallback) 
+        self.image_subscriber = rospy.Subscriber('/zed2/zed_node/left/image_rect_color', Image, self.imageCallback)
+        self.depth_subscriber = rospy.Subscriber('/zed2/zed_node/depth/depth_registered', Image, self.depthCallback)
+        self.depth_subscriber = rospy.Subscriber('/zed2/zed_node/depth/camera_info', CameraInfo, self.depthInfoCallback)
+        self.camera_info_subscriber = rospy.Subscriber("/zed2/zed_node/left/camera_info", CameraInfo, self.cameraInfoCallback) 
         self.marker_publisher = rospy.Publisher('cube_markers', Marker, queue_size=10)
         
         #self.point_cloud_subscriber = rospy.Subscriber("/zed2/point_cloud/cloud_registered", PointCloud2, self.pointCloudCallback)       
@@ -226,7 +226,7 @@ class CubeDetector:
 
     def publish_markers(self, transformed_positions):
         marker = Marker()
-        marker.header.frame_id = "world"  # oder Ihr Referenz-Koordinatensystem
+        marker.header.frame_id = "map"  # oder Ihr Referenz-Koordinatensystem
         marker.type = marker.POINTS
         marker.action = marker.ADD
         marker.scale.x = 0.02
