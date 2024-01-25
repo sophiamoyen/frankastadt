@@ -43,7 +43,7 @@ class CubeDetector:
         self.depth = None
         self.depth_K = None
 
-        self.target_frame = "world"
+        self.target_frame = "map"
         self.camera_frame_id = None
         self.tf_listener = TransformListener()
 
@@ -52,12 +52,12 @@ class CubeDetector:
         self.bridge = CvBridge()
         
         # camera subscriber
-        self.image_subscriber = rospy.Subscriber('/zed2/left/image_rect_color', Image, self.imageCallback)
-        self.camera_info_subscriber = rospy.Subscriber("/zed2/left/camera_info", CameraInfo, self.cameraInfoCallback) 
+        self.image_subscriber = rospy.Subscriber('/zed2/zed_node/left/image_rect_color', Image, self.imageCallback)
+        self.camera_info_subscriber = rospy.Subscriber("/zed2/zed_node/left/camera_info", CameraInfo, self.cameraInfoCallback) 
 
         #depth subscriber
-        self.depth_subscriber = rospy.Subscriber('/zed2/depth/depth_registered', Image, self.depthCallback)
-        self.depth_info_subscriber = rospy.Subscriber('/zed2/depth/camera_info', CameraInfo, self.depthInfoCallback)
+        self.depth_subscriber = rospy.Subscriber('/zed2/zed_node/depth/depth_registered', Image, self.depthCallback)
+        self.depth_info_subscriber = rospy.Subscriber('/zed2/zed_node/depth/camera_info', CameraInfo, self.depthInfoCallback)
         
         # visualization publisher
         self.marker_array_publisher = rospy.Publisher('cube_markers', MarkerArray, queue_size=10)
@@ -93,7 +93,7 @@ class CubeDetector:
                 stamped_point.point.x = point[0]
                 stamped_point.point.y = point[1]
                 stamped_point.point.z = point[2]
-                transformed_points.append(self.tf_listener.transformPoint("/world", stamped_point))
+                transformed_points.append(self.tf_listener.transformPoint("/map", stamped_point))
                 print(f"transformed z: {transformed_points[i].point.z}")
                 i =+ 1
             return transformed_points
@@ -125,8 +125,8 @@ class CubeDetector:
 
             #obere 4 kanten finden?
 
-            #if (len(edges) >= 4) and (len(edges) <= 7) and cv2.isContourConvex(edges) and abs(cv2.contourArea(contour)) > 500:
-            if (len(edges) >= 4) and (len(edges) <= 7) and cv2.isContourConvex(edges):
+            if (len(edges) >= 4) and (len(edges) <= 7) and cv2.isContourConvex(edges) and abs(cv2.contourArea(contour)) > 50:
+            #if (len(edges) >= 4) and (len(edges) <= 7) and cv2.isContourConvex(edges):
                 depth_values = [self.depth[y, x] for [[x, y]] in edges]
                 depths = self.calc_depth(depth_values)
                 print(f"depth: {depths}")
