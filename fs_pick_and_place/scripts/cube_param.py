@@ -25,6 +25,7 @@ def listener():
     rospy.Subscriber("cube_5_odom", Odometry, callback)
     rospy.Subscriber("cube_6_odom", Odometry, callback)
     rospy.Subscriber("cube_7_odom", Odometry, callback)
+    """
     rospy.Subscriber("cube_8_odom", Odometry, callback)
     rospy.Subscriber("cube_9_odom", Odometry, callback)
     rospy.Subscriber("cube_10_odom", Odometry, callback)
@@ -45,6 +46,7 @@ def listener():
     rospy.Subscriber("cube_25_odom", Odometry, callback)
     rospy.Subscriber("cube_26_odom", Odometry, callback)
     rospy.Subscriber("cube_27_odom", Odometry, callback)
+    """
 
     rospy.spin()
 
