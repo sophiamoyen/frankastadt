@@ -130,16 +130,16 @@ class Tower():
             i += 1
 
     def test(self):
-        pick_position = [0.4,0.2,0.2]
+        pick_position = [0.62,-0.17,0.1]
         pick_orientation = [1.57,3.14,0]
-        place_position = [0.5,0.15,0.2]
+        place_position = [0.5,0.15,0.1]
         place_orientation = [1.57,3.14,0]
 
         self.pick_and_place.setPickPose(*pick_position,*pick_orientation)
         self.pick_and_place.setDropPose(*place_position,*place_orientation)
         self.pick_and_place.setGripperPose(0.01, 0.01)
 
-        self.pick_and_place.execute_pick_and_place()
+        self.pick_and_place.execute_pick_pause_place()
 
 if __name__ == "__main__":
     cla = Tower()

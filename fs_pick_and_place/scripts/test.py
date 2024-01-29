@@ -89,6 +89,14 @@ print("============ Printing robot state")
 print(robot.get_current_state())
 print("")
 
+# Sometimes for debugging it is useful to print the entire state of the
+# robot:
+print("============ Printing move group pose")
+print(move_group.get_current_pose())
+print("")
+
+
+"""
 # We get the joint values from the group and change some of the values:
 joint_goal = move_group.get_current_joint_values()
 joint_goal[0] = 0
@@ -105,3 +113,4 @@ move_group.go(joint_goal, wait=True)
 
 # Calling ``stop()`` ensures that there is no residual movement
 move_group.stop()
+"""

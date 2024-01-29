@@ -1,4 +1,5 @@
 import rospy
+import moveit_commander
 from pick_and_place_module.eef_control import MoveGroupControl
 from pick_and_place_module.grasping import Gripper
 from copy import deepcopy
@@ -96,7 +97,35 @@ class PickAndPlace:
             move_group.go_to_pose_goal(waypoint[0], waypoint[1], waypoint[2], waypoint[3], waypoint[4], waypoint[5])
                         
         self.gripper.move(0.04, 0.04)
-        rospy.sleep(2)        
+        rospy.sleep(2)
+
+    def execute_pick_pause_place(self):
+        move_group = self.moveit_control
+
+        # Picking
+        self.gripper.move(0.04, 0.04)
+        rospy.sleep(2)
+
+        waypoints = self.generate_waypoints(self.pick_pose, 0)
+        
+        for waypoint in waypoints:
+            rospy.loginfo("Executing waypoint: %s", waypoint)
+            move_group.go_to_pose_goal(waypoint[0], waypoint[1], waypoint[2], waypoint[3], waypoint[4], waypoint[5])
+
+        self.gripper.grasp(self.gripper_pose[0], self.gripper_pose[1])
+        rospy.sleep(2)
+
+        # Placing
+        move_group = self.moveit_control
+        waypoints = self.generate_waypoints(self.drop_pose, 1)
+        
+        for waypoint in waypoints:
+            rospy.loginfo("Executing waypoint: %s", waypoint)
+            move_group.go_to_pose_goal(waypoint[0], waypoint[1], waypoint[2], waypoint[3], waypoint[4], waypoint[5])
+                        
+        self.gripper.move(0.04, 0.04)
+        rospy.sleep(2)
+
 
     def execute_cartesian_pick_up(self):
         move_group = self.moveit_control

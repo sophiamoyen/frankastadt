@@ -123,7 +123,7 @@ def obtain_pc_rotation(pc):
 def pointcloud_callback(msg):
     
     # Call the transformation to world frame
-    world_frame = "world"
+    world_frame = "map"
     transformed_pc = transform_pointcloud(msg, world_frame)
     if transformed_pc is None:
         return
@@ -145,12 +145,19 @@ def pointcloud_callback(msg):
         )
     )
 
+    zf_cloud = yf_cloud.crop(
+        o3d.geometry.AxisAlignedBoundingBox(
+        min_bound=(-np.inf, -1, -np.inf),
+        max_bound=(np.inf, 0.6, np.inf)
+        )
+    )
+
     # Segment the largest planar component from the cropped cloud
-    plane_model, inliers = yf_cloud.segment_plane(distance_threshold=0.01,
+    plane_model, inliers = zf_cloud.segment_plane(distance_threshold=0.01,
                                                     ransac_n=3,
                                                     num_iterations=1000)
     [a, b, c, d] = plane_model
-    outlier_cloud = yf_cloud.select_by_index(inliers, invert=True)
+    outlier_cloud = zf_cloud.select_by_index(inliers, invert=True)
 
     with o3d.utility.VerbosityContextManager(
             o3d.utility.VerbosityLevel.Debug) as cm:
@@ -204,6 +211,6 @@ if __name__ == '__main__':
     pub = rospy.Publisher('segmented_pc', PointCloud2, queue_size=10)
     transform_pub = rospy.Publisher('transform_cube', TransformStamped, queue_size=10)
     # Subscribe to the pointcloud topic
-    rospy.Subscriber('/zed2/point_cloud/cloud_registered', PointCloud2, pointcloud_callback)
+    rospy.Subscriber('/zed2/zed_node/point_cloud/cloud_registered', PointCloud2, pointcloud_callback)
 
     rospy.spin()
