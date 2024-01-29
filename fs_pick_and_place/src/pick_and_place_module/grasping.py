@@ -14,7 +14,7 @@ class Gripper:
         gripper_data = MoveActionGoal()
         gripper_data.goal.width = finger1_y+finger2_y
        
-        gripper_data.goal.speed = 0.3
+        gripper_data.goal.speed = 0.1
         self.gripper_move_pub.publish(gripper_data)
         
 
@@ -22,10 +22,10 @@ class Gripper:
         
         gripper_data = GraspActionGoal()
         gripper_data.goal.width = finger1_y+finger2_y
-        gripper_data.goal.epsilon.inner = 0.02
-        gripper_data.goal.epsilon.outer = 0.02
-        gripper_data.goal.force = 150.0
-        gripper_data.goal.speed = 0.3
+        gripper_data.goal.epsilon.inner = 0.1
+        gripper_data.goal.epsilon.outer = 0.1
+        gripper_data.goal.force = 5.0
+        gripper_data.goal.speed = 0.1
         self.gripper_pub.publish(gripper_data)
         
         

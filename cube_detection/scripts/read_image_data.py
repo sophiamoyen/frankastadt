@@ -324,7 +324,8 @@ class CubeDetector:
 
     def publish_markers(self, transformed_positions):
         marker = Marker()
-        marker.header.frame_id = self.target_frame  # oder Ihr Referenz-Koordinatensystem
+        marker.header.frame_id = self.target_frame  
+
         marker.type = marker.POINTS
         marker.action = marker.ADD
         marker.scale.x = 0.02
