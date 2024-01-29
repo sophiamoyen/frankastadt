@@ -12,6 +12,7 @@ def task():
     --- Picking ---
     Assumes that z axis is always turned upwards! 
     """
+    """
     pick_position=[rospy.get_param("cube_0_x"),rospy.get_param("cube_0_y"),rospy.get_param("cube_0_z")+0.05]
     cube_orientation = list(euler_from_quaternion([rospy.get_param("cube_0_orient_x"),
                                                     rospy.get_param("cube_0_orient_y"),
@@ -25,13 +26,15 @@ def task():
         orient_x = orient_x - pi
         orient_y = orient_y - pi
         orient_z = orient_z - pi
-
-    pick_orientation=[3,0.26,-1]
+    """
+    pick_position = [0.4,0.2,0.2]
+    pick_orientation=[1.57,3.14,0]
 
     """ 
     --- Placing ---
     """
-    place_position=[rospy.get_param("cube_0_x")-0.05,rospy.get_param("cube_0_y")-0.05,rospy.get_param("cube_0_z")+0.1]
+    #place_position=[rospy.get_param("cube_0_x")-0.05,rospy.get_param("cube_0_y")-0.05,rospy.get_param("cube_0_z")+0.1]
+    place_position = [0.3,0.15,0.2]
     place_orientation=[1.57,3.14,0]
     
     """
