@@ -65,7 +65,6 @@ class CubeDetector:
         self.camera_info_subscriber = rospy.Subscriber("/zed2/zed_node/left/camera_info", CameraInfo, self.cameraInfoCallback) 
         # depth subscriber
         self.depth_subscriber = rospy.Subscriber('/zed2/zed_node/depth/depth_registered', Image, self.depthCallback)
-
         
         # visualization publisher
         self.marker_array_publisher = rospy.Publisher('cube_markers', MarkerArray, queue_size=10)
