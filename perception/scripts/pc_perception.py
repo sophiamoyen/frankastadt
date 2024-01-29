@@ -20,10 +20,18 @@ class PCPerception():
 
     def __init__(self):
 
+        # Set the work environment
         self.work_environment = "gazebo"
-        mesh = o3d.geometry.TriangleMesh.create_box(width=0.045, height=0.045, depth=0.045)
-        self.cube_gt = mesh.sample_points_uniformly(number_of_points=100)
+        self.using_icp = True
 
+        # Create a cube for ground truth
+        mesh = o3d.geometry.TriangleMesh.create_box(width=0.045, height=0.045, depth=0.045)
+        self.cube_gt = mesh.sample_points_uniformly(number_of_points=500)
+        points = np.asarray(self.cube_gt.points)
+        transformed_points = points - np.array([0.0225, 0.0225, 0.0225])
+        self.cube_gt.points = o3d.utility.Vector3dVector(transformed_points)
+
+        # Set the world frame and the subscriber node
         if self.work_environment == "gazebo":
             self.world_frame = "world"
             self.subscriber_node = "/zed2/point_cloud/cloud_registered"
@@ -186,6 +194,8 @@ class PCPerception():
         
         return pc.get_rotation_matrix_from_xyz((0, 0, rotation))
 
+    #def publish_odometry(self, center, quat):
+
 
     # Downsampling, filtering, segmentation and clustering http://www.open3d.org/docs/latest/tutorial/Basic/pointcloud.html
     def pointcloud_callback(self, msg):
@@ -254,11 +264,30 @@ class PCPerception():
                 center = bounding_box.get_center()
                 center[2] = z
 
-                #transformation_matrix = np.eye(4)
-                #transformation_matrix[:3, :3] = rotation
-                #transformation_matrix[:3, 3] = center
-
-                if i == 0:
+                if self.using_icp:
+                    # Perform ICP on cluster
+                    while np.asarray(cube.points).shape[0] > 100:
+                        reg_p2p = o3d.pipelines.registration.registration_icp(
+                            self.cube_gt, cube, 1, np.eye(4), o3d.pipelines.registration.TransformationEstimationPointToPoint(),
+                        )
+                        # From "cube" filter out every point that is within 0.0225m of the transformed cube
+                        old_number_points = np.asarray(cube.points).shape[0]
+                        cube = cube.select_by_index(np.asarray(reg_p2p.correspondence_set)[:, 1], invert=True)
+                        new_number_points = np.asarray(cube.points).shape[0]
+                        located_points = old_number_points - new_number_points
+                        #print("remaining points", np.asarray(reg_p2p.correspondence_set)[:, 1])
+                        #print(old_number_points - new_number_points)
+                        
+                        if located_points > 100:
+                            pos = [reg_p2p.transformation[1, 3], -reg_p2p.transformation[0, 3], reg_p2p.transformation[2, 3]]
+                            rotation = np.array([[reg_p2p.transformation[0, 0], -reg_p2p.transformation[1, 0], reg_p2p.transformation[2, 0]],
+                                                [reg_p2p.transformation[0, 1], -reg_p2p.transformation[1, 1], reg_p2p.transformation[2, 1]],
+                                                [reg_p2p.transformation[0, 2], -reg_p2p.transformation[1, 2], reg_p2p.transformation[2, 2]]])
+                            rot = self.rotation_matrix_to_quaternion(rotation)
+                            print(pos)
+                            print(self.rotation_matrix_to_euler_angles(rotation))
+                
+                if i == 0 and not self.using_icp:
                     cube_odom = Odometry()
                     cube_odom.header.frame_id = self.world_frame
                     cube_odom.child_frame_id = self.world_frame
@@ -272,8 +301,23 @@ class PCPerception():
                     transform_pub.publish(cube_odom)
                     print("published odometry: ", cube_odom)
 
-                print(center)
-                print(self.rotation_matrix_to_euler_angles(rotation))
+                if i == 0 and self.using_icp:
+                    cube_odom = Odometry()
+                    cube_odom.header.frame_id = self.world_frame
+                    cube_odom.child_frame_id = self.world_frame
+                    cube_odom.pose.pose.position.x = pos[0]
+                    cube_odom.pose.pose.position.y = pos[1]
+                    cube_odom.pose.pose.position.z = pos[2]
+                    cube_odom.pose.pose.orientation.x = rot[0]
+                    cube_odom.pose.pose.orientation.y = rot[1]
+                    cube_odom.pose.pose.orientation.z = rot[2]
+                    cube_odom.pose.pose.orientation.w = rot[3]
+                    transform_pub.publish(cube_odom)
+                    print("published odometry: ", cube_odom)
+
+                if not self.using_icp:
+                    print(center)
+                    print(self.rotation_matrix_to_euler_angles(rotation))
             else:
                 print("cluster too small, skipping")
         
@@ -298,6 +342,40 @@ if __name__ == '__main__':
 
     # Create a publisher for the downsampled point cloud
     pub = rospy.Publisher('segmented_pc', PointCloud2, queue_size=10)
+
+    # Create a publisher for the odometry of the cubes
+    cube_1 = rospy.Publisher('cube_1', Odometry, queue_size=10)
+    cube_2 = rospy.Publisher('cube_2', Odometry, queue_size=10)
+    cube_3 = rospy.Publisher('cube_3', Odometry, queue_size=10)
+    cube_4 = rospy.Publisher('cube_4', Odometry, queue_size=10)
+    cube_5 = rospy.Publisher('cube_5', Odometry, queue_size=10)
+    cube_6 = rospy.Publisher('cube_6', Odometry, queue_size=10)
+    cube_7 = rospy.Publisher('cube_7', Odometry, queue_size=10)
+    cube_8 = rospy.Publisher('cube_8', Odometry, queue_size=10)
+    cube_9 = rospy.Publisher('cube_9', Odometry, queue_size=10)
+    cube_10 = rospy.Publisher('cube_10', Odometry, queue_size=10)
+    cube_11 = rospy.Publisher('cube_11', Odometry, queue_size=10)
+    cube_12 = rospy.Publisher('cube_12', Odometry, queue_size=10)
+    cube_13 = rospy.Publisher('cube_13', Odometry, queue_size=10)
+    cube_14 = rospy.Publisher('cube_14', Odometry, queue_size=10)
+    cube_15 = rospy.Publisher('cube_15', Odometry, queue_size=10)
+    cube_16 = rospy.Publisher('cube_16', Odometry, queue_size=10)
+    cube_17 = rospy.Publisher('cube_17', Odometry, queue_size=10)
+    cube_18 = rospy.Publisher('cube_18', Odometry, queue_size=10)
+    cube_19 = rospy.Publisher('cube_19', Odometry, queue_size=10)
+    cube_20 = rospy.Publisher('cube_20', Odometry, queue_size=10)
+    cube_21 = rospy.Publisher('cube_21', Odometry, queue_size=10)
+    cube_22 = rospy.Publisher('cube_22', Odometry, queue_size=10)
+    cube_23 = rospy.Publisher('cube_23', Odometry, queue_size=10)
+    cube_24 = rospy.Publisher('cube_24', Odometry, queue_size=10)
+    cube_25 = rospy.Publisher('cube_25', Odometry, queue_size=10)
+    cube_26 = rospy.Publisher('cube_26', Odometry, queue_size=10)
+    cube_27 = rospy.Publisher('cube_27', Odometry, queue_size=10)
+    cube_28 = rospy.Publisher('cube_28', Odometry, queue_size=10)
+    cube_29 = rospy.Publisher('cube_29', Odometry, queue_size=10)
+    cube_30 = rospy.Publisher('cube_30', Odometry, queue_size=10)
+
+
     transform_pub = rospy.Publisher('cube', Odometry, queue_size=10)
     # Subscribe to the pointcloud topic
     rospy.Subscriber(pc_perception.subscriber_node, PointCloud2, pc_perception.pointcloud_callback)
