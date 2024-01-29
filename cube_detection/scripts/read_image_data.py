@@ -41,23 +41,31 @@ class CubeDetector:
         self.camera_K = None
 
         self.depth = None
-        self.depth_K = None
 
         self.target_frame = "map"
+        #self.target_frame = "world"
         self.camera_frame_id = None
         self.tf_listener = TransformListener()
 
+        self.cube_size = [0.045, 0.045, 0.045]
         self.cubes = []
 
         self.bridge = CvBridge()
         
+        ##### for simulation
+        ## camera subscriber
+        #self.image_subscriber = rospy.Subscriber('/zed2/left/image_rect_color', Image, self.imageCallback)
+        #self.camera_info_subscriber = rospy.Subscriber("/zed2/left/camera_info", CameraInfo, self.cameraInfoCallback) 
+        ## depth subscriber
+        #self.depth_subscriber = rospy.Subscriber('/zed2/depth/depth_registered', Image, self.depthCallback)
+
+        ##### for real robot
         # camera subscriber
         self.image_subscriber = rospy.Subscriber('/zed2/zed_node/left/image_rect_color', Image, self.imageCallback)
         self.camera_info_subscriber = rospy.Subscriber("/zed2/zed_node/left/camera_info", CameraInfo, self.cameraInfoCallback) 
-
-        #depth subscriber
+        # depth subscriber
         self.depth_subscriber = rospy.Subscriber('/zed2/zed_node/depth/depth_registered', Image, self.depthCallback)
-        self.depth_info_subscriber = rospy.Subscriber('/zed2/zed_node/depth/camera_info', CameraInfo, self.depthInfoCallback)
+
         
         # visualization publisher
         self.marker_array_publisher = rospy.Publisher('cube_markers', MarkerArray, queue_size=10)
@@ -93,7 +101,7 @@ class CubeDetector:
                 stamped_point.point.x = point[0]
                 stamped_point.point.y = point[1]
                 stamped_point.point.z = point[2]
-                transformed_points.append(self.tf_listener.transformPoint("/map", stamped_point))
+                transformed_points.append(self.tf_listener.transformPoint(self.target_frame, stamped_point))
                 print(f"transformed z: {transformed_points[i].point.z}")
                 i =+ 1
             return transformed_points
@@ -112,7 +120,6 @@ class CubeDetector:
     
     def calc_depth(self, depth_values):
         return np.abs(depth_values)
-        #return np.multiply(depth_values, self.depth_K[0, 0])
 
 
     #docs.opencv.org/4.x/de/dc0/samples_2tapi_2squares_8cpp-example.html#a22
@@ -120,7 +127,7 @@ class CubeDetector:
         detected_cubes = []
 
         for contour in contours:
-            epsilon = 0.02 * cv2.arcLength(contour, True)
+            epsilon = 0.01 * cv2.arcLength(contour, True)
             edges = cv2.approxPolyDP(contour, epsilon, True)
 
             #obere 4 kanten finden?
@@ -194,9 +201,11 @@ class CubeDetector:
 
                 #if (DEBUG):
                     #plt.imshow(edges, cmap='gray')
-                    #plt.title('Threshold Image')
+                    #plt.title('Edges')
                     #plt.show()
+                    #cv2.drawContours(self.cv_image, contours, -1, (0,255,0), 3)
                     #plt.imshow(self.cv_image)
+                    #plt.show()
                     #plt.title('Detected Cubes')
 
                 
@@ -246,9 +255,6 @@ class CubeDetector:
 
             except Exception as e:
                 print(e)
-
-    def depthInfoCallback(self, msg):
-        self.depth_K = np.array(msg.K).reshape(3,3)
 
     def cameraInfoCallback(self, msg):
         try:
@@ -319,7 +325,7 @@ class CubeDetector:
 
     def publish_markers(self, transformed_positions):
         marker = Marker()
-        marker.header.frame_id = "world"  # oder Ihr Referenz-Koordinatensystem
+        marker.header.frame_id = self.target_frame  # oder Ihr Referenz-Koordinatensystem
         marker.type = marker.POINTS
         marker.action = marker.ADD
         marker.scale.x = 0.02
