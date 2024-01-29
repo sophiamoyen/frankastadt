@@ -6,10 +6,10 @@ from pick_and_place_module.pick_and_place import PickAndPlace
 def task():
     pick_and_place = PickAndPlace(0.05, 0.5)
     pick_position=[rospy.get_param("cube_x"),rospy.get_param("cube_y"),rospy.get_param("cube_z")+0.05]
-    pick_orientation=[1.57,3.14,0]
+    pick_orientation=[1.57,3.14,rospy.get_param("cube_orient_z")]
 
     place_position=[rospy.get_param("cube_x")+0.05,rospy.get_param("cube_y")+0.2,rospy.get_param("cube_z")+0.1]
-    place_orientation=[1.57,3.14,0]
+    place_orientation=[1.57,3.14,rospy.get_param("cube_orient_z")]
     
     pick_and_place.setPickPose(*pick_position,*pick_orientation)
     pick_and_place.setDropPose(*place_position,*place_orientation)
