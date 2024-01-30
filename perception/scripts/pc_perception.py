@@ -14,15 +14,13 @@ import pcl
 import open3d as o3d
 import matplotlib.pyplot as plt
 
-point_clouds = np.empty((0, 3))
-
 class PCPerception():
 
     def __init__(self):
 
         # Set the work environment
-        self.work_environment = "gazebo"
-        self.using_icp = True
+        self.work_environment = "real"
+        self.using_icp = False
 
         # Create a cube for ground truth
         mesh = o3d.geometry.TriangleMesh.create_box(width=0.045, height=0.045, depth=0.045)
@@ -31,19 +29,32 @@ class PCPerception():
         transformed_points = points - np.array([0.0225, 0.0225, 0.0225])
         self.cube_gt.points = o3d.utility.Vector3dVector(transformed_points)
 
-        # Set the world frame and the subscriber node
+        # Additional parameters
+        self.cube_diagonal = 0.0389
+
+        # Set the parameter for simulation or real world
         if self.work_environment == "gazebo":
             self.world_frame = "world"
             self.subscriber_node = "/zed2/point_cloud/cloud_registered"
             self.boundX = [-1, 1]
             self.boundY = [-1, 1]
             self.boundZ = [-1, 1]
+            self.eps = 0.015
+            self.min_points = 20
+            self.voxel_size = 0.005
+            self.icp_min_points = 100
+            self.distance_threshold = 0.01
         elif self.work_environment == "real":
             self.world_frame = "map"
             self.subscriber_node = "/zed2/zed_node/point_cloud/cloud_registered"
             self.boundX = [-0.25, 0.25]
             self.boundY = [-0.5, 0.5]
             self.boundZ = [-1, -0.2]
+            self.eps = 0.03
+            self.min_points = 40
+            self.voxel_size = 0.005
+            self.icp_min_points = 50
+            self.distance_threshold = 0.02
 
 
     # Copied from open3d-ros-helper method and modified https://pypi.org/project/open3d-ros-helper/#files
@@ -194,9 +205,6 @@ class PCPerception():
         
         return pc.get_rotation_matrix_from_xyz((0, 0, rotation))
 
-    #def publish_odometry(self, center, quat):
-
-
     # Downsampling, filtering, segmentation and clustering http://www.open3d.org/docs/latest/tutorial/Basic/pointcloud.html
     def pointcloud_callback(self, msg):
         
@@ -206,13 +214,9 @@ class PCPerception():
             return
 
         # Voxel downsampling
-        voxel_size = 0.005
-        downpcd = transformed_pc.voxel_down_sample(voxel_size)
+        downpcd = transformed_pc.voxel_down_sample(self.voxel_size)
 
-        # Cropping
-
-        # Cropping for gazebo
-
+        # Crop the point cloud to the area of interest
         xf_cloud = downpcd.crop(
             o3d.geometry.AxisAlignedBoundingBox(
             min_bound=(self.boundX[0], -np.inf, -np.inf),
@@ -235,91 +239,92 @@ class PCPerception():
         )
 
         # Segment the largest planar component from the cropped cloud
-        plane_model, inliers = zf_cloud.segment_plane(distance_threshold=0.01,
+        plane_model, inliers = zf_cloud.segment_plane(distance_threshold=self.distance_threshold,
                                                         ransac_n=3,
                                                         num_iterations=1000)
         [a, b, c, d] = plane_model
         outlier_cloud = zf_cloud.select_by_index(inliers, invert=True)
-        eps = 0.02
-        min_points = 20
         
+        # Clustering
         with o3d.utility.VerbosityContextManager(
                 o3d.utility.VerbosityLevel.Debug) as cm:
                 labels = np.array(
-                    outlier_cloud.cluster_dbscan(eps=eps, min_points=min_points, print_progress=True))
-
-        # Get the box coordinates of the segmented cubes
+                    outlier_cloud.cluster_dbscan(eps=self.eps, min_points=self.min_points, print_progress=True))
         max_label = labels.max()
-        cubes = []
+
+        # Determine center and rotation of each cluster
         for i in range(max_label + 1):
             print(f"Cluster {i}: {np.count_nonzero(labels == i)} points")
-            if np.count_nonzero(labels == i) > 10:
-                cube = outlier_cloud.select_by_index(np.where(labels == i)[0])
-                bounding_box = cube.get_axis_aligned_bounding_box()
-                rotation = self.obtain_pc_rotation(cube)
-                quat = self.rotation_matrix_to_quaternion(rotation)
-                box_points = np.asarray(bounding_box.get_box_points())
-                edge_len = 0.0225
-                z = sum(np.sort(box_points[:, 2])[4:])/4 - edge_len
-                center = bounding_box.get_center()
-                center[2] = z
+            cube = outlier_cloud.select_by_index(np.where(labels == i)[0])
+            bounding_box = cube.get_axis_aligned_bounding_box()
+            rotation = self.obtain_pc_rotation(cube)
+            quat = self.rotation_matrix_to_quaternion(rotation)
+            box_points = np.asarray(bounding_box.get_box_points())
+            edge_len = 0.0225
+            z = sum(np.sort(box_points[:, 2])[4:])/4 - edge_len
+            center = bounding_box.get_center()
+            center[2] = z
 
-                if self.using_icp:
-                    # Perform ICP on cluster
-                    while np.asarray(cube.points).shape[0] > 100:
-                        reg_p2p = o3d.pipelines.registration.registration_icp(
-                            self.cube_gt, cube, 1, np.eye(4), o3d.pipelines.registration.TransformationEstimationPointToPoint(),
-                        )
-                        # From "cube" filter out every point that is within 0.0225m of the transformed cube
-                        old_number_points = np.asarray(cube.points).shape[0]
-                        cube = cube.select_by_index(np.asarray(reg_p2p.correspondence_set)[:, 1], invert=True)
-                        new_number_points = np.asarray(cube.points).shape[0]
-                        located_points = old_number_points - new_number_points
-                        #print("remaining points", np.asarray(reg_p2p.correspondence_set)[:, 1])
-                        #print(old_number_points - new_number_points)
-                        
-                        if located_points > 100:
-                            pos = [reg_p2p.transformation[1, 3], -reg_p2p.transformation[0, 3], reg_p2p.transformation[2, 3]]
-                            rotation = np.array([[reg_p2p.transformation[0, 0], -reg_p2p.transformation[1, 0], reg_p2p.transformation[2, 0]],
-                                                [reg_p2p.transformation[0, 1], -reg_p2p.transformation[1, 1], reg_p2p.transformation[2, 1]],
-                                                [reg_p2p.transformation[0, 2], -reg_p2p.transformation[1, 2], reg_p2p.transformation[2, 2]]])
-                            rot = self.rotation_matrix_to_quaternion(rotation)
-                            print(pos)
-                            print(self.rotation_matrix_to_euler_angles(rotation))
-                
-                if i == 0 and not self.using_icp:
-                    cube_odom = Odometry()
-                    cube_odom.header.frame_id = self.world_frame
-                    cube_odom.child_frame_id = self.world_frame
-                    cube_odom.pose.pose.position.x = center[0]
-                    cube_odom.pose.pose.position.y = center[1]
-                    cube_odom.pose.pose.position.z = center[2]
-                    cube_odom.pose.pose.orientation.x = quat[0]
-                    cube_odom.pose.pose.orientation.y = quat[1]
-                    cube_odom.pose.pose.orientation.z = quat[2]
-                    cube_odom.pose.pose.orientation.w = quat[3]
-                    transform_pub.publish(cube_odom)
-                    print("published odometry: ", cube_odom)
+            # Perform ICP to separate the cubes within the cluster
+            if self.using_icp:
+                max_iter = 10
+                count = 0
+                while np.asarray(cube.points).shape[0] > self.icp_min_points and count < max_iter:
+                    count += 1
 
-                if i == 0 and self.using_icp:
-                    cube_odom = Odometry()
-                    cube_odom.header.frame_id = self.world_frame
-                    cube_odom.child_frame_id = self.world_frame
-                    cube_odom.pose.pose.position.x = pos[0]
-                    cube_odom.pose.pose.position.y = pos[1]
-                    cube_odom.pose.pose.position.z = pos[2]
-                    cube_odom.pose.pose.orientation.x = rot[0]
-                    cube_odom.pose.pose.orientation.y = rot[1]
-                    cube_odom.pose.pose.orientation.z = rot[2]
-                    cube_odom.pose.pose.orientation.w = rot[3]
-                    transform_pub.publish(cube_odom)
-                    print("published odometry: ", cube_odom)
+                    # ICP
+                    reg_p2p = o3d.pipelines.registration.registration_icp(
+                        self.cube_gt, cube, 1, np.eye(4), o3d.pipelines.registration.TransformationEstimationPointToPoint(),
+                    )
 
-                if not self.using_icp:
-                    print(center)
+                    # Retrieve position and orientation from the transformation matrix
+                    raw_pos = [reg_p2p.transformation[0, 3], reg_p2p.transformation[1, 3], reg_p2p.transformation[2, 3]]
+                    pos = [reg_p2p.transformation[1, 3], -reg_p2p.transformation[0, 3], reg_p2p.transformation[2, 3]] # Transforms pos from o3d frame to world frame
+                    rotation = np.array([[reg_p2p.transformation[0, 0], -reg_p2p.transformation[1, 0], reg_p2p.transformation[2, 0]],
+                                        [reg_p2p.transformation[0, 1], -reg_p2p.transformation[1, 1], reg_p2p.transformation[2, 1]],
+                                        [reg_p2p.transformation[0, 2], -reg_p2p.transformation[1, 2], reg_p2p.transformation[2, 2]]])
+                    rot = self.rotation_matrix_to_quaternion(rotation)
+
+                    # Remove the points within the radious of its diagonal
+                    cube = cube.select_by_index(np.where(np.linalg.norm(np.asarray(cube.points) - raw_pos, axis=1) > self.cube_diagonal)[0])
+
+                    # Print the position and orientation
+                    print(pos)
                     print(self.rotation_matrix_to_euler_angles(rotation))
-            else:
-                print("cluster too small, skipping")
+
+
+            # Publish the odometry of the first cube TODO: publish all cubes   
+            if i == 0 and not self.using_icp:
+                cube_odom = Odometry()
+                cube_odom.header.frame_id = self.world_frame
+                cube_odom.child_frame_id = self.world_frame
+                cube_odom.pose.pose.position.x = center[0]
+                cube_odom.pose.pose.position.y = center[1]
+                cube_odom.pose.pose.position.z = center[2]
+                cube_odom.pose.pose.orientation.x = quat[0]
+                cube_odom.pose.pose.orientation.y = quat[1]
+                cube_odom.pose.pose.orientation.z = quat[2]
+                cube_odom.pose.pose.orientation.w = quat[3]
+                transform_pub.publish(cube_odom)
+                print("published odometry: ", cube_odom)
+
+            if i == 0 and self.using_icp:
+                cube_odom = Odometry()
+                cube_odom.header.frame_id = self.world_frame
+                cube_odom.child_frame_id = self.world_frame
+                cube_odom.pose.pose.position.x = pos[0]
+                cube_odom.pose.pose.position.y = pos[1]
+                cube_odom.pose.pose.position.z = pos[2]
+                cube_odom.pose.pose.orientation.x = rot[0]
+                cube_odom.pose.pose.orientation.y = rot[1]
+                cube_odom.pose.pose.orientation.z = rot[2]
+                cube_odom.pose.pose.orientation.w = rot[3]
+                transform_pub.publish(cube_odom)
+                print("published odometry: ", cube_odom)
+
+            if not self.using_icp:
+                print(center)
+                print(self.rotation_matrix_to_euler_angles(rotation))
         
         # Assign colors to the segmented point clouds for the visualization
         colors = plt.get_cmap("tab20")(labels / (max_label if max_label > 0 else 1))
