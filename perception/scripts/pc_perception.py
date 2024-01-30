@@ -8,6 +8,7 @@ import numpy as np
 import sensor_msgs.point_cloud2 as pc2
 from sensor_msgs.msg import PointCloud2, PointField
 from geometry_msgs.msg import TransformStamped
+from nav_msgs.msg import Odometry
 import tf2_geometry_msgs
 import pcl
 import open3d as o3d
@@ -73,6 +74,48 @@ def rotation_matrix_to_euler_angles(R):
 
     return np.array([roll, pitch, yaw])
 
+
+def rotation_matrix_to_quaternion(R):
+    """
+    Convert a 3x3 rotation matrix to its quaternion representation.
+
+    Args:
+    - R: 3x3 rotation matrix
+
+    Returns:
+    - Quaternion [x, y, z, w]
+    """
+    q = np.empty(4)
+
+    trace = np.trace(R)
+    if trace > 0:
+        s = 0.5 / np.sqrt(trace + 1.0)
+        q[3] = 0.25 / s
+        q[0] = (R[2, 1] - R[1, 2]) * s
+        q[1] = (R[0, 2] - R[2, 0]) * s
+        q[2] = (R[1, 0] - R[0, 1]) * s
+    else:
+        if R[0, 0] > R[1, 1] and R[0, 0] > R[2, 2]:
+            s = 2.0 * np.sqrt(1.0 + R[0, 0] - R[1, 1] - R[2, 2])
+            q[3] = (R[2, 1] - R[1, 2]) / s
+            q[0] = 0.25 * s
+            q[1] = (R[0, 1] + R[1, 0]) / s
+            q[2] = (R[0, 2] + R[2, 0]) / s
+        elif R[1, 1] > R[2, 2]:
+            s = 2.0 * np.sqrt(1.0 + R[1, 1] - R[0, 0] - R[2, 2])
+            q[3] = (R[0, 2] - R[2, 0]) / s
+            q[0] = (R[0, 1] + R[1, 0]) / s
+            q[1] = 0.25 * s
+            q[2] = (R[1, 2] + R[2, 1]) / s
+        else:
+            s = 2.0 * np.sqrt(1.0 + R[2, 2] - R[0, 0] - R[1, 1])
+            q[3] = (R[1, 0] - R[0, 1]) / s
+            q[0] = (R[0, 2] + R[2, 0]) / s
+            q[1] = (R[1, 2] + R[2, 1]) / s
+            q[2] = 0.25 * s
+
+    return q
+
 def transform_pointcloud(msg, target_frame):
 
     # Get the transform from the camera frame to the world frame
@@ -109,13 +152,13 @@ def obtain_pc_rotation(pc):
 
     # Rotate the point cloud by 1/32 of a circle and save the rotation that results in the smallest volume
     rotation = 0
-    for i in range(0, 16):
-        pc.rotate(pc.get_rotation_matrix_from_xyz((0, 0, np.pi/32)), center=(0, 0, 0))
+    for i in range(0, 32):
+        pc.rotate(pc.get_rotation_matrix_from_xyz((0, 0, np.pi/64)), center=(0, 0, 0))
         bounding_box = pc.get_axis_aligned_bounding_box()
         new_volume = bounding_box.volume()
         if new_volume < volume:
             volume = new_volume
-            rotation = (i+1)*np.pi/32
+            rotation = (i+1)*np.pi/64
     
     return pc.get_rotation_matrix_from_xyz((0, 0, rotation))
 
@@ -173,16 +216,30 @@ def pointcloud_callback(msg):
             cube = outlier_cloud.select_by_index(np.where(labels == i)[0])
             bounding_box = cube.get_axis_aligned_bounding_box()
             rotation = obtain_pc_rotation(cube)
+            quat = rotation_matrix_to_quaternion(rotation)
             box_points = np.asarray(bounding_box.get_box_points())
             edge_len = 0.0225
             z = sum(np.sort(box_points[:, 2])[4:])/4 - edge_len
             center = bounding_box.get_center()
             center[2] = z
 
-            transformation_matrix = np.eye(4)
-            transformation_matrix[:3, :3] = rotation
-            transformation_matrix[:3, 3] = center
-            # TODO: publish the transform
+            #transformation_matrix = np.eye(4)
+            #transformation_matrix[:3, :3] = rotation
+            #transformation_matrix[:3, 3] = center
+
+            if i == 0:
+                cube_odom = Odometry()
+                cube_odom.header.frame_id = "world"
+                cube_odom.child_frame_id = "world"
+                cube_odom.pose.pose.position.x = center[0]
+                cube_odom.pose.pose.position.y = center[1]
+                cube_odom.pose.pose.position.z = center[2]
+                cube_odom.pose.pose.orientation.x = quat[0]
+                cube_odom.pose.pose.orientation.y = quat[1]
+                cube_odom.pose.pose.orientation.z = quat[2]
+                cube_odom.pose.pose.orientation.w = quat[3]
+                transform_pub.publish(cube_odom)
+                print("published odometry: ", cube_odom)
 
             print(center)
             print(rotation_matrix_to_euler_angles(rotation))
@@ -195,7 +252,7 @@ def pointcloud_callback(msg):
     outlier_cloud.colors = o3d.utility.Vector3dVector(colors[:, :3])
     pcd_ros = o3dpc_to_rospc(outlier_cloud, msg.header, msg.fields, frame_id=world_frame)
 
-    print("publish segmented point cloud")
+    #print("publish segmented point cloud")
     pub.publish(pcd_ros)
     
 
@@ -209,7 +266,7 @@ if __name__ == '__main__':
 
     # Create a publisher for the downsampled point cloud
     pub = rospy.Publisher('segmented_pc', PointCloud2, queue_size=10)
-    transform_pub = rospy.Publisher('transform_cube', TransformStamped, queue_size=10)
+    transform_pub = rospy.Publisher('cube', Odometry, queue_size=10)
     # Subscribe to the pointcloud topic
     rospy.Subscriber('/zed2/zed_node/point_cloud/cloud_registered', PointCloud2, pointcloud_callback)
 

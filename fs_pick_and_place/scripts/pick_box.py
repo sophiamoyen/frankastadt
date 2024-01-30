@@ -7,6 +7,7 @@ from math import *
 
 def task():
     pick_and_place = PickAndPlace(0.05, 0.5)
+<<<<<<< HEAD
 
     """ 
     --- Picking ---
@@ -35,6 +36,12 @@ def task():
     """
     #place_position=[rospy.get_param("cube_0_x")-0.05,rospy.get_param("cube_0_y")-0.05,rospy.get_param("cube_0_z")+0.1]
     place_position = [0.3,0.15,0.2]
+=======
+    pick_position=[rospy.get_param("cube_x"),rospy.get_param("cube_y"),rospy.get_param("cube_z")+0.05]
+    pick_orientation=[1.57,3.14,0]
+
+    place_position=[rospy.get_param("cube_x")+0.05,rospy.get_param("cube_y")+0.2,rospy.get_param("cube_z")+0.1]
+>>>>>>> pc_based_grasp
     place_orientation=[1.57,3.14,0]
     
     """

@@ -3,6 +3,7 @@ import rospy
 from nav_msgs.msg import Odometry
 
 def callback(data):
+    """
     index=data.child_frame_id[-1]
     rospy.set_param("cube_"+str(index)+"_x",data.pose.pose.position.x)
     rospy.set_param("cube_"+str(index)+"_y",data.pose.pose.position.y)
@@ -11,12 +12,21 @@ def callback(data):
     rospy.set_param("cube_"+str(index)+"_orient_y",data.pose.pose.orientation.y)
     rospy.set_param("cube_"+str(index)+"_orient_z",data.pose.pose.orientation.z)
     rospy.set_param("cube_"+str(index)+"_orient_w",data.pose.pose.orientation.w)
+    """
+    rospy.set_param("cube_x",data.pose.pose.position.x)
+    rospy.set_param("cube_y",data.pose.pose.position.y)
+    rospy.set_param("cube_z",data.pose.pose.position.z)
+    rospy.set_param("cube_orient_x",data.pose.pose.orientation.x)
+    rospy.set_param("cube_orient_y",data.pose.pose.orientation.y)
+    rospy.set_param("cube_orient_z",data.pose.pose.orientation.z)
+    rospy.set_param("cube_orient_w",data.pose.pose.orientation.w)
+    
 
     
     
 def listener():
     rospy.init_node('listener', anonymous=True)
-
+    """
     rospy.Subscriber("cube_0_odom", Odometry, callback)
     rospy.Subscriber("cube_1_odom", Odometry, callback)
     rospy.Subscriber("cube_2_odom", Odometry, callback)
@@ -24,7 +34,6 @@ def listener():
     rospy.Subscriber("cube_4_odom", Odometry, callback)
     rospy.Subscriber("cube_5_odom", Odometry, callback)
     rospy.Subscriber("cube_6_odom", Odometry, callback)
-    """
     rospy.Subscriber("cube_7_odom", Odometry, callback)
     rospy.Subscriber("cube_8_odom", Odometry, callback)
     rospy.Subscriber("cube_9_odom", Odometry, callback)
@@ -47,6 +56,7 @@ def listener():
     rospy.Subscriber("cube_26_odom", Odometry, callback)
     rospy.Subscriber("cube_27_odom", Odometry, callback)
     """
+    rospy.Subscriber("cube", Odometry, callback)
 
     rospy.spin()
 
