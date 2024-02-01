@@ -111,7 +111,10 @@ class CubeDetector:
     def preprocessing_image(self, image):
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         _, thresh = cv2.threshold(gray, 0 , 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        return thresh
+
+        kernel = np.ones((5, 5), np.uint8)
+        closing = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+        return closing
 
     def edge_detection(self, image):
         edges = cv2.Canny(image, 50, 150)
@@ -125,14 +128,18 @@ class CubeDetector:
     def find_cubes(self, contours):
         detected_cubes = []
 
+        debug_image = self.cv_image.copy()
+
         for contour in contours:
+            cv2.drawContours(debug_image, [contour], -1, (255,0,0), 2)
             epsilon = 0.01 * cv2.arcLength(contour, True)
             edges = cv2.approxPolyDP(contour, epsilon, True)
 
+            #cv2.drawContours(debug_image, [edges], -1, (0,255,0),2)
             #obere 4 kanten finden?
 
-            if (len(edges) >= 4) and (len(edges) <= 7) and cv2.isContourConvex(edges) and abs(cv2.contourArea(contour)) > 50:
-            #if (len(edges) >= 4) and (len(edges) <= 7) and cv2.isContourConvex(edges):
+            #if (len(edges) >= 4) and (len(edges) <= 8) and cv2.isContourConvex(edges) and abs(cv2.contourArea(contour)) > 50:
+            if (len(edges) >= 3)  and cv2.isContourConvex(edges):
                 depth_values = [self.depth[y, x] for [[x, y]] in edges]
                 depths = self.calc_depth(depth_values)
                 print(f"depth: {depths}")
@@ -144,6 +151,10 @@ class CubeDetector:
                     cx = int(M["m10"] / M["m00"])
                     cy = int(M["m01"] / M["m00"])
 
+                    cv2.drawContours(debug_image, [edges], -1, (0,255,0),2)
+                    #cv2.circle(debug_image, (cx, cy), 5, (0, 0, 255), -1)
+                    #cv2.putText(debug_image, "Contour", (cx, cy -10), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 2)
+
                     # Calculate orientation
                     orientation_rad = 0.5 * math.atan2(2 * M["m11"] - M["m20"] - M["m02"], M["m20"] - M["m02"])
                     orientation_deg = math.degrees(orientation_rad)
@@ -151,12 +162,16 @@ class CubeDetector:
                 detected_cubes.append({
                     'edges': edges,
                     'depths': depths,
+                })
 
-                }) 
+            #else:
+                #cv2.drawContours(debug_image, [edges] -1, (0,0, 255), 2)
+        plt.imshow(cv2.cvtColor(debug_image, cv2.COLOR_BGR2RGB))
+        plt.show()
 
         return detected_cubes
     
-    def match_or_create_cube(self, edges, middle, points_camera_frame, threshold= 0.1):
+    def match_or_create_cube(self, edges, middle, points_camera_frame, threshold= 0.2):
         new_cube = True
         for cube in self.cubes:
             print(f"Cube {cube.cube_id} distance: {cube.distance_to(middle)}")
@@ -208,36 +223,36 @@ class CubeDetector:
                     #plt.title('Detected Cubes')
 
                 
-                for index, detected_cube in enumerate(detected_cubes):
+                # for index, detected_cube in enumerate(detected_cubes):
                 
-                    points_camera_frame = self.pixel_to_camera_frame(detected_cube["edges"], detected_cube["depths"])
+                #     points_camera_frame = self.pixel_to_camera_frame(detected_cube["edges"], detected_cube["depths"])
                     
-                    transformed_positions = self.transform_points(points_camera_frame, self.camera_frame_id, self.target_frame)
+                #     transformed_positions = self.transform_points(points_camera_frame, self.camera_frame_id, self.target_frame)
                     
-                    position = self.middle_of_cube(transformed_positions)
+                #     position = self.middle_of_cube(transformed_positions)
 
-                    self.match_or_create_cube(transformed_positions, position, points_camera_frame)
+                #     self.match_or_create_cube(transformed_positions, position, points_camera_frame)
                     
 
-                    # print(f"Cube {index} in world frame: {transformed_positions}")
-                        #print(f"cube {index}: {detected_cube['position']}")
-                    cv2.drawContours(self.cv_image, [detected_cube['edges']], -1, (0, 255, 0), 2)
-                    M = cv2.moments(detected_cube['edges'])
-                    if M["m00"] != 0:
-                        cx = int(M["m10"] / M["m00"])
-                        cy = int(M["m01"] / M["m00"])
-                        text = f"Cube {index + 1}"
-                        cv2.putText(self.cv_image, text, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                #     # print(f"Cube {index} in world frame: {transformed_positions}")
+                #         #print(f"cube {index}: {detected_cube['position']}")
+                #     cv2.drawContours(self.cv_image, [detected_cube['edges']], -1, (0, 255, 0), 2)
+                #     M = cv2.moments(detected_cube['edges'])
+                #     if M["m00"] != 0:
+                #         cx = int(M["m10"] / M["m00"])
+                #         cy = int(M["m01"] / M["m00"])
+                #         text = f"Cube {index + 1}"
+                #         cv2.putText(self.cv_image, text, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
-                    #transformed_positions = self.transform_points(Points_camera_frame, '/left_camera_link_optical', '/world')
-                    #self.publish_markers(transformed_positions)
+                #     #transformed_positions = self.transform_points(Points_camera_frame, '/left_camera_link_optical', '/world')
+                #     #self.publish_markers(transformed_positions)
 
-                self.publish_cubes()
+                # self.publish_cubes()
 
-                if (DEBUG):
-                    plt.imshow(cv2.cvtColor(self.cv_image, cv2.COLOR_BGR2RGB))
-                    plt.title('Detected Cubes/Contours')
-                    plt.show()
+                # if (DEBUG):
+                #     plt.imshow(cv2.cvtColor(self.cv_image, cv2.COLOR_BGR2RGB))
+                #     plt.title('Detected Cubes/Contours')
+                #     plt.show()
                     #plt.legend()
                     #plt.show()
                     #time.sleep(1000)
