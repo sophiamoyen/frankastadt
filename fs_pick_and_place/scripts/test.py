@@ -66,10 +66,10 @@ group_name = "panda_arm"
 move_group = moveit_commander.MoveGroupCommander(group_name)
 
 display_trajectory_publisher = rospy.Publisher(
-    "/move_group/display_planned_path",
-    moveit_msgs.msg.DisplayTrajectory,
-    queue_size=20,
-)
+                                "/move_group/display_planned_path",
+                                moveit_msgs.msg.DisplayTrajectory,
+                                queue_size=20,
+                            )
 
 # We can get the name of the reference frame for this robot:
 planning_frame = move_group.get_planning_frame()
@@ -95,6 +95,11 @@ print("============ Printing move group pose")
 print(move_group.get_current_pose())
 print("")
 
+# Sometimes for debugging it is useful to print the entire state of the
+# robot:
+print("============ Printing move group joint values")
+print(move_group.get_current_joint_values())
+print("")
 
 """
 # We get the joint values from the group and change some of the values:

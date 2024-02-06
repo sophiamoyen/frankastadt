@@ -13,7 +13,6 @@ class Gripper:
         
         gripper_data = MoveActionGoal()
         gripper_data.goal.width = finger1_y+finger2_y
-       
         gripper_data.goal.speed = 0.1
         self.gripper_move_pub.publish(gripper_data)
         

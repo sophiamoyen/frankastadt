@@ -2,6 +2,7 @@
 
 import rospy
 from pick_and_place_module.pick_and_place import PickAndPlace
+from pick_and_place_module.move_functions import PlanAndMove
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 from math import *
 import geometry_msgs.msg
@@ -9,113 +10,109 @@ import geometry_msgs.msg
 class Tower():
     def __init__(self):
         self.pick_and_place = PickAndPlace(0.05, 0.5)
+        self.plan_and_move = PlanAndMove()
+
+    def pickplace(self):
+        self.plan_and_move.move_standard_pose()
+
+
+        pick_position = [rospy.get_param("cube_0_x"),
+                        rospy.get_param("cube_0_y"),
+                        rospy.get_param("cube_0_z")]
+
+        pick_orientation = [0.9239002820650952,  
+                            -0.3826324133679813, 
+                            -0.000784053224384248,  
+                            0.00030050087016984296]
+
+        place_position = [rospy.get_param("cube_0_x") - 0.2,
+                          rospy.get_param("cube_0_y") - 0.2,
+                          rospy.get_param("cube_0_z")]
+
+        self.plan_and_move.setPickPose(*pick_position,*pick_orientation)
+        self.plan_and_move.setPlacePose(*place_position,*pick_orientation)
+        self.plan_and_move.execute_pick()
+        self.plan_and_move.execute_place()
+        self.plan_and_move.move_standard_pose()
 
     def collision_scene(self):
+        # Creates collision scene for table and around the robot
+        
         """
-        self.pick_and_place.moveit_control.scene.remove_world_object("left_bar")
-
-
-        # Gazebo Collision
-        table_pose = geometry_msgs.msg.PoseStamped()
-        table_pose.header.frame_id = "world"
-        table_pose.pose.orientation.w = 1.0
-        table_pose.pose.position.x = 0.495
-        table_pose.pose.position.y = 0
-        table_pose.pose.position.z = 0.3935
-        self.pick_and_place.moveit_control.scene.add_box("table", table_pose, size=(0.81, 1.49, 0.787))
-
-        left_bar_pose = geometry_msgs.msg.PoseStamped()
-        left_bar_pose.header.frame_id = "world"
-        left_bar_pose.pose.orientation.w = 1.0
-        left_bar_pose.pose.position.x = 0.495
-        left_bar_pose.pose.position.y = 0.795
-        left_bar_pose.pose.position.z = 0.81
-        self.pick_and_place.moveit_control.scene.add_box("left_bar", left_bar_pose, size=(0.81, 0.1, 1.6))
-
-
-        right_bar_pose = geometry_msgs.msg.PoseStamped()
-        right_bar_pose.header.frame_id = "world"
-        right_bar_pose.pose.orientation.w = 1.0
-        right_bar_pose.pose.position.x = 0.495
-        right_bar_pose.pose.position.y = -0.795
-        right_bar_pose.pose.position.z = 0.81
-        self.pick_and_place.moveit_control.scene.add_box("right_bar", right_bar_pose, size=(0.81, 0.1, 1.6))
-
-        front_bar_pose = geometry_msgs.msg.PoseStamped()
-        front_bar_pose.header.frame_id = "world"
-        front_bar_pose.pose.orientation.w = 1.0
-        front_bar_pose.pose.position.x = 0.86
-        front_bar_pose.pose.position.y = 0
-        front_bar_pose.pose.position.z = 0.81
-        self.pick_and_place.moveit_control.scene.add_box("front_bar", front_bar_pose, size=(0.1, 1.49, 1.6))
+        self.plan_and_move.moveit_control.scene.remove_world_object("left_bar")
+        self.plan_and_move.moveit_control.scene.remove_world_object("right_bar")
+        self.plan_and_move.moveit_control.scene.remove_world_object("front_bar")
+        self.plan_and_move.moveit_control.scene.remove_world_object("table")
         """
 
-        # Real Robot Collision
         table_pose = geometry_msgs.msg.PoseStamped()
-        table_pose.header.frame_id = "world"
+        table_pose.header.frame_id = "panda_link0"
         table_pose.pose.orientation.w = 1.0
         table_pose.pose.position.x = 0.495
         table_pose.pose.position.y = 0
         table_pose.pose.position.z = -0.3935
-        self.pick_and_place.moveit_control.scene.add_box("table", table_pose, size=(0.81, 1.49, 0.787))
+        self.plan_and_move.moveit_control.scene.add_box("table", table_pose, size=(0.81, 1.49, 0.787))
 
         left_bar_pose = geometry_msgs.msg.PoseStamped()
-        left_bar_pose.header.frame_id = "world"
+        left_bar_pose.header.frame_id = "panda_link0"
         left_bar_pose.pose.orientation.w = 1.0
         left_bar_pose.pose.position.x = 0.495
         left_bar_pose.pose.position.y = 0.795
         left_bar_pose.pose.position.z = 0.4
-        self.pick_and_place.moveit_control.scene.add_box("left_bar", left_bar_pose, size=(0.81, 0.1, 1.6))
-
+        self.plan_and_move.moveit_control.scene.add_box("left_bar", left_bar_pose, size=(0.81, 0.1, 1.6))
 
         right_bar_pose = geometry_msgs.msg.PoseStamped()
-        right_bar_pose.header.frame_id = "world"
+        right_bar_pose.header.frame_id = "panda_link0"
         right_bar_pose.pose.orientation.w = 1.0
         right_bar_pose.pose.position.x = 0.495
         right_bar_pose.pose.position.y = -0.795
         right_bar_pose.pose.position.z = 0.4
-        self.pick_and_place.moveit_control.scene.add_box("right_bar", right_bar_pose, size=(0.81, 0.1, 1.6))
+        self.plan_and_move.moveit_control.scene.add_box("right_bar", right_bar_pose, size=(0.81, 0.1, 1.6))
 
         front_bar_pose = geometry_msgs.msg.PoseStamped()
-        front_bar_pose.header.frame_id = "world"
+        front_bar_pose.header.frame_id = "panda_link0"
         front_bar_pose.pose.orientation.w = 1.0
         front_bar_pose.pose.position.x = 0.86
         front_bar_pose.pose.position.y = 0
         front_bar_pose.pose.position.z = 0.4
-        self.pick_and_place.moveit_control.scene.add_box("front_bar", front_bar_pose, size=(0.1, 1.49, 1.6))
+        self.plan_and_move.moveit_control.scene.add_box("front_bar", front_bar_pose, size=(0.1, 1.49, 1.6))
 
-    def stack(self,n_cube, place_position):
+    def stack(self, n_cube, place_position):
+        self.plan_and_move.move_standard_pose()
         """ 
         --- Picking ---
         Assumes that z axis is always turned upwards! 
         """
         pick_position = [rospy.get_param("cube_{}_x".format(n_cube)),
-                    rospy.get_param("cube_{}_y".format(n_cube)),
-                    rospy.get_param("cube_{}_z".format(n_cube))+0.05]
-        pick_orientation = [1.57,3.14,0]
+                        rospy.get_param("cube_{}_y".format(n_cube)),
+                        rospy.get_param("cube_{}_z".format(n_cube))]
+
+        pick_orientation = [0.9239002820650952,  
+                            -0.3826324133679813, 
+                            -0.000784053224384248,  
+                            0.00030050087016984296]
 
         """ 
         --- Placing ---
         """
         place_position = place_position
-        place_orientation = [1.57,3.14,0]
         
         """
         --- Execution ---
         """
-        self.pick_and_place.setPickPose(*pick_position,*pick_orientation)
-        self.pick_and_place.setDropPose(*place_position,*place_orientation)
-        self.pick_and_place.setGripperPose(0.01, 0.01)
+        self.plan_and_move.setPickPose(*pick_position,*pick_orientation)
+        self.plan_and_move.setPlacePose(*place_position,*pick_orientation)
+        self.plan_and_move.execute_pick()
+        self.plan_and_move.execute_place()
 
-        self.pick_and_place.execute_pick_and_place()
 
     def task(self):
-        cube0_position = [0.5,0,rospy.get_param("cube_0_z")+0.1]
-        cube1_position = [0.5,0.045,rospy.get_param("cube_0_z")+0.1]
-        cube2_position = [0.5,-0.045,rospy.get_param("cube_0_z")+0.1]
-        cube3_position = [0.5,-0.0225,rospy.get_param("cube_0_z")+0.15]
-        cube4_position = [0.5,0.0225,rospy.get_param("cube_0_z")+0.15]
-        cube5_position = [0.5,0,rospy.get_param("cube_0_z")+0.2]
+        cube0_position = [0.5,0,rospy.get_param("cube_0_z")]
+        cube1_position = [0.545,0,rospy.get_param("cube_0_z")]
+        cube2_position = [0.455,0,rospy.get_param("cube_0_z")]
+        cube3_position = [0.4775,0,rospy.get_param("cube_0_z")+0.05]
+        cube4_position = [0.5225,0,rospy.get_param("cube_0_z")+0.05]
+        cube5_position = [0.5,0,rospy.get_param("cube_0_z")+0.1]
 
         list_cubes = [cube0_position,
                     cube1_position,
@@ -124,24 +121,18 @@ class Tower():
                     cube4_position,
                     cube5_position]
 
+        self.plan_and_move.move_standard_pose()
+
         i = 0
         for cube_pos in list_cubes:
             self.stack(i,cube_pos)
             i += 1
 
-    def test(self):
-        pick_position = [0.62,-0.17,0.1]
-        pick_orientation = [1.57,3.14,0]
-        place_position = [0.5,0.15,0.1]
-        place_orientation = [1.57,3.14,0]
+        self.plan_and_move.move_standard_pose()
 
-        self.pick_and_place.setPickPose(*pick_position,*pick_orientation)
-        self.pick_and_place.setDropPose(*place_position,*place_orientation)
-        self.pick_and_place.setGripperPose(0.01, 0.01)
-
-        self.pick_and_place.execute_pick_pause_place()
 
 if __name__ == "__main__":
     cla = Tower()
     cla.collision_scene()
-    cla.test()
+    cla.task()
+

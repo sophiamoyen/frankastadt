@@ -63,6 +63,28 @@ class MoveGroupControl:
         current_joints = move_group.get_current_joint_values()
         return all_close(joint_goal, current_joints, 0.01)
     
+    def go_to_pose_q_goal(self, x=0, y=0, z=0, qx=0, qy=0, qz=0, qw=0):
+        move_group = self.move_group
+
+        pose_goal = geometry_msgs.msg.Pose()
+        pose_goal.orientation.w = qw
+        pose_goal.orientation.x = qx
+        pose_goal.orientation.y = qy
+        pose_goal.orientation.z = qz
+        pose_goal.position.x = x
+        pose_goal.position.y = y
+        pose_goal.position.z = z
+
+        move_group.set_pose_target(pose_goal)
+
+        plan = move_group.go(wait=True)
+        move_group.stop()
+        move_group.clear_pose_targets()
+
+        current_pose = self.move_group.get_current_pose().pose
+        return all_close(pose_goal, current_pose, 0.01)
+
+
     def go_to_pose_goal(self, x=0, y=0, z=0, X=0, Y=0, Z=0):
         move_group = self.move_group
 
