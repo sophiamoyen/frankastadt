@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 import rospy
 from sensor_msgs.msg import Image, CameraInfo
+from geometry_msgs.msg import PointStamped
+from nav_msgs.msg import Odometry
 
+from tf import TransformListener
 from cv_bridge import CvBridge
 
 import cv2
@@ -23,6 +26,8 @@ class CubeDetector:
 
         self.depth = None
 
+        self.tf_listener = TransformListener()
+
         self.bridge = CvBridge()
 
         if SIMULATION:
@@ -31,7 +36,7 @@ class CubeDetector:
             self.image_subscriber = rospy.Subscriber('/zed2/left/image_rect_color', Image, self.imageCallback)
             self.camera_info_subscriber = rospy.Subscriber("/zed2/left/camera_info", CameraInfo, self.cameraInfoCallback) 
         else:
-            self.target_frame = "map"
+            self.target_frame = "world"
             # camera subscriber
             self.image_subscriber = rospy.Subscriber('/zed2/zed_node/rgb/image_rect_color', Image, self.imageCallback)
             self.camera_info_subscriber = rospy.Subscriber("/zed2/zed_node/rgb/camera_info", CameraInfo, self.cameraInfoCallback) 
@@ -42,13 +47,14 @@ class CubeDetector:
          if self.cv_image is not None and self.depth is not None:
             try:
                 thresholded = self.preprocess_image()
+
                 detected_edges = cv2.Canny(thresholded, 50, 150)
                 #self.show_image(detected_edges, "Detected Edges", 'gray')
                 contours, _ = cv2.findContours(detected_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
                 contour_image = self.cv_image.copy()
                 cv2.drawContours(contour_image, contours, -1, (0,255,255), 3)
-                self.show_image(contour_image, "Contours")
+                #self.show_image(contour_image, "Contours")
 
                 detected_cubes = self.find_cubes(contours)
 
@@ -69,7 +75,7 @@ class CubeDetector:
         # thresholding to isolate non-black objects (table=black)
         _, thresholded = cv2.threshold(blurred, BLACK_TABEL_THRESHOLD, 255, cv2.THRESH_BINARY)
         
-        self.show_image(thresholded, "thresholded", 'gray')
+        #self.show_image(thresholded, "thresholded", 'gray')
         # other theshold trials
         #thresholded = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 13, 2)
         #_, thresh = cv2.threshold(gray, 0 , 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
@@ -89,7 +95,7 @@ class CubeDetector:
             epsilon = 0.01 * cv2.arcLength(contour, True)
             edges = cv2.approxPolyDP(contour, epsilon, True)
 
-            if len(edges >=4) and len(edges <=7) and (abs(cv2.contourArea(contour)) > 20):
+            if len(edges >=4) and len(edges <=8) and (abs(cv2.contourArea(contour)) > 30):
             #if len(edges >=4) and len(edges <=7) and abs(cv2.contourArea(contour)) > 50 and abs(cv2.contourArea(contour)) < 2500:
                 cv2.drawContours(debug_image, [edges], -1, (0,255,0),2)
 
@@ -98,19 +104,59 @@ class CubeDetector:
                     # Calculate centroid (position)
                     cx = int(M["m10"] / M["m00"])
                     cy = int(M["m01"] / M["m00"])
+                    cv2.circle(debug_image, (cx, cy), 5, (255, 0, 0), -1)
+                    cv2.putText(debug_image, f"Contour {count}", (cx, cy -10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 2)
+                    plt.imshow(cv2.cvtColor(debug_image, cv2.COLOR_BGR2RGB))
+                    plt.show()
 
                     depth = self.depth[cy, cx]
-                    print(depth)
+                    print("depth ", depth)
+                    camera_frame = self.pixel_to_camera_frame(cx, cy, depth)
+                    #print(camera_frame)
 
-                    cv2.circle(debug_image, (cx, cy), 5, (255, 0, 0), -1)
-                    cv2.putText(debug_image, f"Contour {depth}", (cx, cy -10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 2)
+                    
 
+                    transformed_point = self.transform_point(camera_frame)
+                    print(count, ": ", transformed_point)
+
+                    cube_odom = Odometry()
+                    cube_odom.header.frame_id = "world"
+                    cube_odom.child_frame_id = "world"
+                    cube_odom.pose.pose.position.x = transformed_point[0]
+                    cube_odom.pose.pose.position.y = transformed_point[1]
+                    cube_odom.pose.pose.position.z = 0.0225
+                    cube_odom.pose.pose.orientation.x = 0
+                    cube_odom.pose.pose.orientation.y = 0
+                    cube_odom.pose.pose.orientation.z = 0
+                    cube_odom.pose.pose.orientation.w = 0
+                    
+
+                    cube_publisher = rospy.Publisher("cube_{}_odom".format(count), Odometry, queue_size=10)
+                    cube_publisher.publish(cube_odom)
 
                 detected_cubes.append(contour)
 
         print(len(detected_cubes))
-        plt.imshow(cv2.cvtColor(debug_image, cv2.COLOR_BGR2RGB))
-        plt.show()
+        
+
+    def pixel_to_camera_frame(self, x, y, depth):
+        uv_h = np.array([x, y, 1.0])
+        K_inv = np.linalg.inv(self.camera_K)
+        return np.dot(K_inv, uv_h) * depth
+
+    def transform_point(self, point):
+        try:
+            stamped_point = PointStamped()
+            stamped_point.header.frame_id = self.camera_frame_id
+            stamped_point.header.stamp = rospy.Time(0)
+            stamped_point.point.x = point[0]
+            stamped_point.point.y = point[1]
+            stamped_point.point.z = point[2]
+            transformed_point = self.tf_listener.transformPoint(self.target_frame, stamped_point)
+            return transformed_point
+        except Exception as e:
+            print(e)
+            return None
 
     def show_image(self, img, title, cmap=None):
         plt.imshow(img, cmap=cmap)
