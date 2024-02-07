@@ -15,7 +15,8 @@ SIMULATION = False
 
 #Hyperparameter
 BLUR_SIZE = (23, 23)
-BLACK_TABEL_THRESHOLD = 150 
+BLACK_TABEL_THRESHOLD = 120 
+
 
 
 class CubeDetector:
@@ -30,11 +31,17 @@ class CubeDetector:
 
         self.bridge = CvBridge()
 
+        self.debug_image = None
+        self.debug_image_publisher = rospy.Publisher('/cube_detection/debug_image', Image, queue_size=10)
+
         if SIMULATION:
             self.target_frame = "world"
             # camera subscriber
             self.image_subscriber = rospy.Subscriber('/zed2/left/image_rect_color', Image, self.imageCallback)
             self.camera_info_subscriber = rospy.Subscriber("/zed2/left/camera_info", CameraInfo, self.cameraInfoCallback) 
+            # depth subscriber
+            self.depth_subscriber = rospy.Subscriber('/zed2/depth/depth_registered', Image, self.depthCallback)
+
         else:
             self.target_frame = "world"
             # camera subscriber
@@ -46,18 +53,20 @@ class CubeDetector:
     def run_cube_detection(self):
          if self.cv_image is not None and self.depth is not None:
             try:
+                print("Running Cube detection")
+                self.debug_image = self.cv_image.copy()
                 thresholded = self.preprocess_image()
 
                 detected_edges = cv2.Canny(thresholded, 50, 150)
                 #self.show_image(detected_edges, "Detected Edges", 'gray')
                 contours, _ = cv2.findContours(detected_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-                contour_image = self.cv_image.copy()
-                cv2.drawContours(contour_image, contours, -1, (0,255,255), 3)
+                cv2.drawContours(self.debug_image, contours, -1, (255,0,0), 3)
                 #self.show_image(contour_image, "Contours")
 
                 detected_cubes = self.find_cubes(contours)
 
+                self.publish_debug_image(self.debug_image)
 
             except Exception as e:
                 print(e)
@@ -74,8 +83,8 @@ class CubeDetector:
 
         # thresholding to isolate non-black objects (table=black)
         _, thresholded = cv2.threshold(blurred, BLACK_TABEL_THRESHOLD, 255, cv2.THRESH_BINARY)
-        
         #self.show_image(thresholded, "thresholded", 'gray')
+
         # other theshold trials
         #thresholded = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 13, 2)
         #_, thresh = cv2.threshold(gray, 0 , 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
@@ -89,7 +98,6 @@ class CubeDetector:
 
     def find_cubes(self, contours):
         detected_cubes = []
-        debug_image = self.cv_image.copy()
 
         for count, contour in enumerate(contours):
             epsilon = 0.01 * cv2.arcLength(contour, True)
@@ -97,28 +105,28 @@ class CubeDetector:
 
             if len(edges >=4) and len(edges <=8) and (abs(cv2.contourArea(contour)) > 30):
             #if len(edges >=4) and len(edges <=7) and abs(cv2.contourArea(contour)) > 50 and abs(cv2.contourArea(contour)) < 2500:
-                cv2.drawContours(debug_image, [edges], -1, (0,255,0),2)
+                cv2.drawContours(self.debug_image, [edges], -1, (0,255,0),2)
 
                 M = cv2.moments(edges)
                 if M["m00"] != 0:
                     # Calculate centroid (position)
                     cx = int(M["m10"] / M["m00"])
                     cy = int(M["m01"] / M["m00"])
-                    cv2.circle(debug_image, (cx, cy), 5, (255, 0, 0), -1)
-                    cv2.putText(debug_image, f"Contour {count}", (cx, cy -10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 2)
-                    plt.imshow(cv2.cvtColor(debug_image, cv2.COLOR_BGR2RGB))
-                    plt.show()
+                    cv2.circle(self.debug_image, (cx, cy), 5, (255, 0, 0), -1)
+                    cv2.putText(self.debug_image, f"Contour {count}", (cx, cy -10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 2)
+                    #plt.imshow(cv2.cvtColor(debug_image, cv2.COLOR_BGR2RGB))
+                    #plt.show()
 
                     depth = self.depth[cy, cx]
                     print("depth ", depth)
                     camera_frame = self.pixel_to_camera_frame(cx, cy, depth)
                     #print(camera_frame)
 
-                    
-
+                    # transform points to world coordinate system
                     transformed_point = self.transform_point(camera_frame)
                     print(count, ": ", transformed_point)
 
+                    # publish cubes
                     cube_odom = Odometry()
                     cube_odom.header.frame_id = "world"
                     cube_odom.child_frame_id = "world"
@@ -131,12 +139,13 @@ class CubeDetector:
                     cube_odom.pose.pose.orientation.w = 0
                     
 
-                    cube_publisher = rospy.Publisher("cube_{}_odom".format(count), Odometry, queue_size=10)
+                    cube_publisher = rospy.Publisher("cube/detection/cube_{}_odom".format(count), Odometry, queue_size=10)
                     cube_publisher.publish(cube_odom)
 
                 detected_cubes.append(contour)
-
-        print(len(detected_cubes))
+ 
+        print("detected Cubes: ", len(detected_cubes))
+        return detected_cubes
         
 
     def pixel_to_camera_frame(self, x, y, depth):
@@ -162,6 +171,16 @@ class CubeDetector:
         plt.imshow(img, cmap=cmap)
         plt.title(title)
         plt.show()
+
+    def publish_debug_image(self, debug_image):
+        try:
+            # Convert OpenCV image to ROS message
+            debug_image_msg = self.bridge.cv2_to_imgmsg(debug_image)
+            # Publish
+            self.debug_image_publisher.publish(debug_image_msg)
+        except Exception as e:
+            print(e)
+
 
     def imageCallback(self, image_msg):
             try:
