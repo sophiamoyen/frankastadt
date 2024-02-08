@@ -11,7 +11,7 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-SIMULATION = True
+SIMULATION = False
 
 #Hyperparameter
 if (SIMULATION):
@@ -23,7 +23,9 @@ if (SIMULATION):
     MAX_AREA = 3000
 else:
     BLUR_SIZE = (23, 23)
+    # to filter out the table depends on light conditions
     BLACK_TABEL_THRESHOLD = 120
+    # for deciding if contour is cube
     MIN_EDGES = 4
     MAX_EDGES = 8
     MIN_AREA = 50
