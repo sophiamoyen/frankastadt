@@ -11,13 +11,23 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-SIMULATION = False
+SIMULATION = True
 
 #Hyperparameter
-BLUR_SIZE = (23, 23)
-BLACK_TABEL_THRESHOLD = 120 
-
-
+if (SIMULATION):
+    BLUR_SIZE = (23, 23)
+    BLACK_TABEL_THRESHOLD = 32
+    MIN_EDGES = 4
+    MAX_EDGES = 10
+    MIN_AREA = 50
+    MAX_AREA = 3000
+else:
+    BLUR_SIZE = (23, 23)
+    BLACK_TABEL_THRESHOLD = 120
+    MIN_EDGES = 4
+    MAX_EDGES = 8
+    MIN_AREA = 50
+    MAX_AREA = 3000
 
 class CubeDetector:
     def __init__(self):
@@ -50,22 +60,31 @@ class CubeDetector:
             # depth subscriber
             self.depth_subscriber = rospy.Subscriber('/zed2/zed_node/depth/depth_registered', Image, self.depthCallback)
 
+
     def run_cube_detection(self):
          if self.cv_image is not None and self.depth is not None:
             try:
                 print("Running Cube detection")
                 self.debug_image = self.cv_image.copy()
+                
+                # theshold image
                 thresholded = self.preprocess_image()
 
+                # canny for edge detection
                 detected_edges = cv2.Canny(thresholded, 50, 150)
                 #self.show_image(detected_edges, "Detected Edges", 'gray')
+
+                # extracting contours (edges that belong together)
                 contours, _ = cv2.findContours(detected_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
+                # draw contours for debugging
                 cv2.drawContours(self.debug_image, contours, -1, (255,0,0), 3)
                 #self.show_image(contour_image, "Contours")
 
+                # find the cubes + publish
                 detected_cubes = self.find_cubes(contours)
 
+                #publish debug image
                 self.publish_debug_image(self.debug_image)
 
             except Exception as e:
@@ -102,48 +121,46 @@ class CubeDetector:
         for count, contour in enumerate(contours):
             epsilon = 0.01 * cv2.arcLength(contour, True)
             edges = cv2.approxPolyDP(contour, epsilon, True)
+            area = abs(cv2.contourArea(contour))
+            num_edges = len(edges)
+            convexity = cv2.isContourConvex(edges)
+            text = f"Num Edges: {num_edges}, Area: {area}, Convex: {convexity}"
+            M = cv2.moments(edges)
 
-            if len(edges >=4) and len(edges <=8) and (abs(cv2.contourArea(contour)) > 30):
+            if (num_edges >= MIN_EDGES) and (num_edges <= MAX_EDGES) and (area >= MIN_AREA) and (area <= MAX_AREA):
             #if len(edges >=4) and len(edges <=7) and abs(cv2.contourArea(contour)) > 50 and abs(cv2.contourArea(contour)) < 2500:
-                cv2.drawContours(self.debug_image, [edges], -1, (0,255,0),2)
+                cv2.drawContours(self.debug_image, [edges], -1, (255,0,0),2)
 
-                M = cv2.moments(edges)
                 if M["m00"] != 0:
                     # Calculate centroid (position)
                     cx = int(M["m10"] / M["m00"])
                     cy = int(M["m01"] / M["m00"])
                     cv2.circle(self.debug_image, (cx, cy), 5, (255, 0, 0), -1)
-                    cv2.putText(self.debug_image, f"Contour {count}", (cx, cy -10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 2)
-                    #plt.imshow(cv2.cvtColor(debug_image, cv2.COLOR_BGR2RGB))
-                    #plt.show()
+                    cube_text = f"Cube {count} - " + text
+                    cv2.putText(self.debug_image, cube_text, (cx, cy -10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,0), 2)
 
                     depth = self.depth[cy, cx]
                     print("depth ", depth)
+
                     camera_frame = self.pixel_to_camera_frame(cx, cy, depth)
-                    #print(camera_frame)
+                    
 
                     # transform points to world coordinate system
                     transformed_point = self.transform_point(camera_frame)
                     print(count, ": ", transformed_point)
 
-                    # publish cubes
-                    cube_odom = Odometry()
-                    cube_odom.header.frame_id = "world"
-                    cube_odom.child_frame_id = "world"
-                    cube_odom.pose.pose.position.x = transformed_point[0]
-                    cube_odom.pose.pose.position.y = transformed_point[1]
-                    cube_odom.pose.pose.position.z = 0.0225
-                    cube_odom.pose.pose.orientation.x = 0
-                    cube_odom.pose.pose.orientation.y = 0
-                    cube_odom.pose.pose.orientation.z = 0
-                    cube_odom.pose.pose.orientation.w = 0
-                    
-
-                    cube_publisher = rospy.Publisher("cube/detection/cube_{}_odom".format(count), Odometry, queue_size=10)
-                    cube_publisher.publish(cube_odom)
+                    # publish cube
+                    self.publish_cube(count, transformed_point)
 
                 detected_cubes.append(contour)
- 
+            else:
+                if M["m00"] != 0:
+                    # Calculate centroid (position)
+                    cx = int(M["m10"] / M["m00"])
+                    cy = int(M["m01"] / M["m00"])
+                    cv2.circle(self.debug_image, (cx, cy), 5, (0, 255, 0), -1)
+                    cv2.putText(self.debug_image, text, (cx, cy -10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 2)
+                    
         print("detected Cubes: ", len(detected_cubes))
         return detected_cubes
         
@@ -181,7 +198,23 @@ class CubeDetector:
         except Exception as e:
             print(e)
 
+    def publish_cube(self, id, pos):
+        # publish cubes
+        cube_odom = Odometry()
+        cube_odom.header.frame_id = "world"
+        cube_odom.child_frame_id = "world"
+        cube_odom.pose.pose.position.x = pos[0]
+        cube_odom.pose.pose.position.y = pos[1]
+        cube_odom.pose.pose.position.z = 0.0225
+        cube_odom.pose.pose.orientation.x = 0
+        cube_odom.pose.pose.orientation.y = 0
+        cube_odom.pose.pose.orientation.z = 0
+        cube_odom.pose.pose.orientation.w = 0
+        
+        cube_publisher = rospy.Publisher("cube/detection/cube_{}_odom".format(id), Odometry, queue_size=10)
+        cube_publisher.publish(cube_odom)
 
+    # callbacks
     def imageCallback(self, image_msg):
             try:
                 self.cv_image = self.bridge.imgmsg_to_cv2(image_msg, desired_encoding=image_msg.encoding)
