@@ -237,6 +237,7 @@ class CubeDetector:
         except Exception as e:
             print(e)
 
+
 def main():
     rospy.init_node('cube_detector', anonymous=True)
     cube_detector = CubeDetector()
