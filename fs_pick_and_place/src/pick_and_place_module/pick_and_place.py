@@ -16,10 +16,10 @@ class PickAndPlace:
         self.gripper = Gripper()
     
     def setPickPose(self, x, y, z, roll, pitch, yaw):
-        self.pick_pose = [x, y, z, roll + pi/4, pitch, yaw]
+        self.pick_pose = [x, y, z+0.11, roll + pi/4, pitch, yaw]
     
     def setDropPose(self, x, y, z, roll, pitch, yaw):
-        self.drop_pose = [x, y, z, roll + pi/4, pitch, yaw]
+        self.drop_pose = [x, y, z+0.11, roll + pi/4, pitch, yaw]
     
     def setGripperPose(self, finger1, finger2):
         self.gripper_pose = [finger1, finger2]
@@ -54,7 +54,7 @@ class PickAndPlace:
         return waypoints
     
     def execute_cartesian_pick_and_place(self):
-        self.gripper.grasp(0.04, 0.04)
+        #self.gripper.grasp(0.04, 0.04)
         waypoints = self.generate_waypoints(self.pick_pose, 0)
         rospy.loginfo("Generated waypoints for pick: %s", waypoints)
         # self.moveit_control.follow_cartesian_path(waypoints)
@@ -62,7 +62,7 @@ class PickAndPlace:
             rospy.loginfo("Executing waypoint: %s", waypoint)
             self.moveit_control.follow_cartesian_path([waypoint])
 
-        self.gripper.grasp(self.gripper_pose[0], self.gripper_pose[1])
+        #self.gripper.grasp(self.gripper_pose[0], self.gripper_pose[1])
         rospy.sleep(2)
     
         waypoints = self.generate_waypoints(self.drop_pose, 1)
@@ -72,13 +72,13 @@ class PickAndPlace:
             rospy.loginfo("Executing waypoint: %s", waypoint)
             self.moveit_control.follow_cartesian_path([waypoint])
 
-        self.gripper.grasp(0.04, 0.04)
+        #self.gripper.grasp(0.04, 0.04)
         rospy.sleep(2)        
 
     def execute_pick_and_place(self):
         move_group = self.moveit_control
 
-        self.gripper.move(0.04, 0.04)
+        #self.gripper.move(0.04, 0.04)
         rospy.sleep(2)
 
         waypoints = self.generate_waypoints(self.pick_pose, 0)
@@ -87,7 +87,7 @@ class PickAndPlace:
             rospy.loginfo("Executing waypoint: %s", waypoint)
             move_group.go_to_pose_goal(waypoint[0], waypoint[1], waypoint[2], waypoint[3], waypoint[4], waypoint[5])
 
-        self.gripper.grasp(self.gripper_pose[0], self.gripper_pose[1])
+        #self.gripper.grasp(self.gripper_pose[0], self.gripper_pose[1])
         rospy.sleep(2)
             
         waypoints = self.generate_waypoints(self.drop_pose, 1)
@@ -96,7 +96,7 @@ class PickAndPlace:
             rospy.loginfo("Executing waypoint: %s", waypoint)
             move_group.go_to_pose_goal(waypoint[0], waypoint[1], waypoint[2], waypoint[3], waypoint[4], waypoint[5])
                         
-        self.gripper.move(0.04, 0.04)
+        #self.gripper.move(0.04, 0.04)
         rospy.sleep(2)
 
     def execute_pick_pause_place(self):
@@ -130,7 +130,7 @@ class PickAndPlace:
     def execute_cartesian_pick_up(self):
         move_group = self.moveit_control
         
-        self.gripper.grasp(0.04, 0.04)
+        #self.gripper.grasp(0.04, 0.04)
         rospy.sleep(2)        
         
         waypoints = self.generate_waypoints(self.pick_pose, 0)
@@ -141,7 +141,7 @@ class PickAndPlace:
             rospy.loginfo("Executing waypoint: %s", waypoint)
             self.moveit_control.follow_cartesian_path([waypoint])
 
-        self.gripper.grasp(self.gripper_pose[0], self.gripper_pose[1])
+        #self.gripper.grasp(self.gripper_pose[0], self.gripper_pose[1])
         rospy.sleep(1)
         
         waypoints = []
@@ -158,7 +158,7 @@ class PickAndPlace:
     def execute_pick_up(self):
         move_group = self.moveit_control
 
-        self.gripper.grasp(0.05, 0.05)
+        #self.gripper.grasp(0.05, 0.05)
         rospy.sleep(2)        
 
         waypoints = self.generate_waypoints(self.pick_pose, 0)
@@ -167,7 +167,7 @@ class PickAndPlace:
             rospy.loginfo("Executing waypoint: %s", waypoint)
             move_group.go_to_pose_goal(waypoint[0], waypoint[1], waypoint[2], waypoint[3], waypoint[4], waypoint[5])
 
-        self.gripper.grasp(self.gripper_pose[0], self.gripper_pose[1])
+        #self.gripper.grasp(self.gripper_pose[0], self.gripper_pose[1])
         rospy.sleep(3)
             
         waypoints = []
@@ -189,7 +189,7 @@ class PickAndPlace:
             rospy.loginfo("Executing waypoint: %s", waypoint)
             move_group.go_to_pose_goal(waypoint[0], waypoint[1], waypoint[2], waypoint[3], waypoint[4], waypoint[5])
                         
-        self.gripper.grasp(0.05, 0.05)
+        #self.gripper.grasp(0.05, 0.05)
         rospy.sleep(2)        
 
     
@@ -201,5 +201,5 @@ class PickAndPlace:
             rospy.loginfo("Executing waypoint: %s", waypoint)
             self.moveit_control.follow_cartesian_path([waypoint])
 
-        self.gripper.grasp(0.05, 0.05)
+        #self.gripper.grasp(0.05, 0.05)
         rospy.sleep(2)        

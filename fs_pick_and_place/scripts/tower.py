@@ -16,9 +16,9 @@ class Tower():
         self.plan_and_move.move_standard_pose()
         
         
-        pick_position = [rospy.get_param("cube_0_x"),
-                        rospy.get_param("cube_0_y"),
-                        0]
+        pick_position = [rospy.get_param("cube_0_x")-0.01,
+                        rospy.get_param("cube_0_y")-0.05,
+                        0.05]
         """
         pick_position = [0.48, -0.32, 0.04]
         """
@@ -30,9 +30,9 @@ class Tower():
                             -0.000784053224384248,  
                             0.00030050087016984296]
 
-        place_position = [0.2,
-                          -0.1,
-                          0.4]
+        place_position = [rospy.get_param("cube_1_x")-0.01,
+                          rospy.get_param("cube_1_y")-0.05,
+                          0.12]
 
         self.plan_and_move.setPickPose(*pick_position,*pick_orientation)
         self.plan_and_move.setPlacePose(*place_position,*pick_orientation)
@@ -81,16 +81,14 @@ class Tower():
         front_bar_pose.pose.position.y = 0
         front_bar_pose.pose.position.z = 0.4
         self.plan_and_move.moveit_control.scene.add_box("front_bar", front_bar_pose, size=(0.1, 1.49, 1.6))
-
-    def stack(self, n_cube, place_position):
+        
+    def stack(self, n_cube, place_position,pick_position):
         self.plan_and_move.move_standard_pose()
         """ 
         --- Picking ---
         Assumes that z axis is always turned upwards! 
         """
-        pick_position = [rospy.get_param("cube_{}_x".format(n_cube)),
-                        rospy.get_param("cube_{}_y".format(n_cube)),
-                        rospy.get_param("cube_{}_z".format(n_cube))]
+        pick_position = pick_position
 
         pick_orientation = [0.9239002820650952,  
                             -0.3826324133679813, 
@@ -110,6 +108,31 @@ class Tower():
         self.plan_and_move.execute_pick()
         self.plan_and_move.execute_place()
 
+    def task_3_cubes(self):
+        cube0_position = [0.5-0.01,-0.05,0.05]
+        cube1_position = [0.55-0.01,-0.05,0.05]
+        cube2_position = [0.53-0.01,-0.05,0.11]
+
+        list_cubes_pos = []
+        
+        for i in range(3):
+            pick_position = [rospy.get_param("cube_{}_x".format(i))-0.01,
+                            rospy.get_param("cube_{}_y".format(i))-0.05,
+                            0.04]
+            list_cubes_pos.append(pick_position)
+
+        list_cubes = [cube0_position,
+                      cube1_position,
+                      cube2_position]
+
+        self.plan_and_move.move_standard_pose()
+
+        i = 0
+        for cube_pos in list_cubes:
+            self.stack(i,cube_pos,list_cubes_pos[i])
+            i += 1
+
+        self.plan_and_move.move_standard_pose()
 
     def task(self):
         cube0_position = [0.5,0,rospy.get_param("cube_0_z")]
@@ -139,7 +162,7 @@ class Tower():
 if __name__ == "__main__":
     cla = Tower()
     cla.collision_scene()
-    cla.pickplace()
+    cla.task_3_cubes()
     #cla.task()
 
 

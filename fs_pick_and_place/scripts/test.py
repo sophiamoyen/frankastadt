@@ -27,7 +27,7 @@ scene.remove_world_object("right_bar")
 scene.remove_world_object("front_bar")
 scene.remove_world_object("table")
 """
-
+"""
 table_pose = geometry_msgs.msg.PoseStamped()
 table_pose.header.frame_id = "world"
 table_pose.pose.orientation.w = 1.0
@@ -60,7 +60,7 @@ front_bar_pose.pose.position.x = 0.86
 front_bar_pose.pose.position.y = 0
 front_bar_pose.pose.position.z = 0.4
 scene.add_box("front_bar", front_bar_pose, size=(0.1, 1.49, 1.6))
-
+"""
 
 group_name = "panda_arm"
 move_group = moveit_commander.MoveGroupCommander(group_name)

@@ -16,17 +16,22 @@ class PlanAndMove:
         self.gripper = Gripper()
 
     def setPickPose(self, x, y, z, qx, qy, qz, qw):
-        self.pick_pose = [x, y, z, qx, qy, qz, qw]
+        self.pick_pose = [x, y, z+0.1, qx, qy, qz, qw]
         self.after_pick_pose = [x, y, z+0.3, qx, qy, qz, qw]
 
     def setPlacePose(self, x, y, z, qx, qy, qz, qw):
-        self.place_pose = [x, y, z, qx, qy, qz, qw]
+        self.place_pose = [x, y, z+0.1, qx, qy, qz, qw]
+        self.before_place_pose = [x, y, z+0.3, qx, qy, qz, qw]
 
     def execute_pick(self):
         move_group = self.moveit_control
 
         # Open gripper
         self.gripper.move(0.04, 0.04)
+        rospy.sleep(2)
+
+        # Move end effector up so that it doesn't stumble on other cubes
+        move_group.go_to_pose_q_goal(*self.after_pick_pose)
         rospy.sleep(2)
 
         # Go to desired pose
@@ -44,6 +49,10 @@ class PlanAndMove:
     def execute_place(self):
         move_group = self.moveit_control
 
+        # Move end effector up so that it doesn't stumble on other cubes
+        move_group.go_to_pose_q_goal(*self.before_place_pose)
+        rospy.sleep(2)
+
         # Go to desired pose
         move_group.go_to_pose_q_goal(*self.place_pose)
         rospy.sleep(2)
@@ -55,7 +64,7 @@ class PlanAndMove:
     def move_standard_pose(self):
         # Moves to standard fixed joint position
         move_group = self.moveit_control
-
+        """
         j1 = 0.00012800795074863203
         j2 = -0.7840221891322567
         j3 = -2.3187151373171844e-05
@@ -63,6 +72,15 @@ class PlanAndMove:
         j5 = -2.0424443644806445e-05
         j6 = 1.5713909927841874
         j7 = 0.785411093636176
+        """
+        j1 = 0.004425608632595956 
+        j2 = -0.1776332457239861
+        j3 = -0.04997807565715949
+        j4 = -1.825997224179561
+        j5 = -0.0032382293592747883
+        j6 = 1.6928230071740233
+        j7 = 0.783730496518573
+
 
         move_group.go_to_joint_state(j1,j2,j3,j4,j5,j6,j7)
 

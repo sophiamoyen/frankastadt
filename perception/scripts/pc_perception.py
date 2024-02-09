@@ -52,7 +52,7 @@ class PCPerception():
             self.subscriber_node = "/zed2/zed_node/point_cloud/cloud_registered"
             self.boundX = [0, 0.86]
             self.boundY = [-0.5, 0.5]
-            self.boundZ = [-0.2, 1]
+            self.boundZ = [-0.1, 1]
             self.eps = 0.03
             self.min_points = 40
             self.voxel_size = 0.005

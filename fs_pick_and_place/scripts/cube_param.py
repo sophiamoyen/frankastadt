@@ -20,9 +20,9 @@ def listener():
     rospy.init_node('listener', anonymous=True)
     
     rospy.Subscriber("cube_0", Odometry, callback)
-    """
     rospy.Subscriber("cube_1", Odometry, callback)
     rospy.Subscriber("cube_2", Odometry, callback)
+    """
     rospy.Subscriber("cube_3", Odometry, callback)
     rospy.Subscriber("cube_4", Odometry, callback)
     rospy.Subscriber("cube_5_odom", Odometry, callback)
