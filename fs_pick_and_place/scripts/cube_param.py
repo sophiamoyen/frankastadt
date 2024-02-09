@@ -19,13 +19,13 @@ def callback(data):
 def listener():
     rospy.init_node('listener', anonymous=True)
     
-    rospy.Subscriber("cube_0_odom", Odometry, callback)
-    rospy.Subscriber("cube_1_odom", Odometry, callback)
-    rospy.Subscriber("cube_2_odom", Odometry, callback)
-    rospy.Subscriber("cube_3_odom", Odometry, callback)
-    rospy.Subscriber("cube_4_odom", Odometry, callback)
-    rospy.Subscriber("cube_5_odom", Odometry, callback)
+    rospy.Subscriber("cube_0", Odometry, callback)
     """
+    rospy.Subscriber("cube_1", Odometry, callback)
+    rospy.Subscriber("cube_2", Odometry, callback)
+    rospy.Subscriber("cube_3", Odometry, callback)
+    rospy.Subscriber("cube_4", Odometry, callback)
+    rospy.Subscriber("cube_5_odom", Odometry, callback)
     rospy.Subscriber("cube_6_odom", Odometry, callback)
     rospy.Subscriber("cube_7_odom", Odometry, callback)
     rospy.Subscriber("cube_8_odom", Odometry, callback)

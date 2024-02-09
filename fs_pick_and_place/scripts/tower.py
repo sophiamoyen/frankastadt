@@ -14,20 +14,25 @@ class Tower():
 
     def pickplace(self):
         self.plan_and_move.move_standard_pose()
-
-
+        
+        
         pick_position = [rospy.get_param("cube_0_x"),
                         rospy.get_param("cube_0_y"),
-                        rospy.get_param("cube_0_z")]
+                        0]
+        """
+        pick_position = [0.48, -0.32, 0.04]
+        """
+        print("pick_position",pick_position)
+        
 
         pick_orientation = [0.9239002820650952,  
                             -0.3826324133679813, 
                             -0.000784053224384248,  
                             0.00030050087016984296]
 
-        place_position = [rospy.get_param("cube_0_x") - 0.2,
-                          rospy.get_param("cube_0_y") - 0.2,
-                          rospy.get_param("cube_0_z")]
+        place_position = [0.2,
+                          -0.1,
+                          0.4]
 
         self.plan_and_move.setPickPose(*pick_position,*pick_orientation)
         self.plan_and_move.setPlacePose(*place_position,*pick_orientation)
@@ -134,5 +139,7 @@ class Tower():
 if __name__ == "__main__":
     cla = Tower()
     cla.collision_scene()
-    cla.task()
+    cla.pickplace()
+    #cla.task()
+
 
