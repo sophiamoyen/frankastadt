@@ -38,11 +38,15 @@ def task():
     place_position = [0.3,0.15,0.2]
 =======
     pick_position=[rospy.get_param("cube_x"),rospy.get_param("cube_y"),rospy.get_param("cube_z")+0.05]
-    pick_orientation=[1.57,3.14,0]
+    pick_orientation=[1.57,3.14,rospy.get_param("cube_orient_z")]
 
     place_position=[rospy.get_param("cube_x")+0.05,rospy.get_param("cube_y")+0.2,rospy.get_param("cube_z")+0.1]
+<<<<<<< HEAD
 >>>>>>> pc_based_grasp
     place_orientation=[1.57,3.14,0]
+=======
+    place_orientation=[1.57,3.14,rospy.get_param("cube_orient_z")]
+>>>>>>> pc_based_grasp
     
     """
     --- Execution ---
