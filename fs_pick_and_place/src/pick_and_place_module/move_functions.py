@@ -65,6 +65,7 @@ class PlanAndMove:
         # Moves to standard fixed joint position
         move_group = self.moveit_control
         """
+        # Other standard pose for camera without tilted angle
         j1 = 0.00012800795074863203
         j2 = -0.7840221891322567
         j3 = -2.3187151373171844e-05
