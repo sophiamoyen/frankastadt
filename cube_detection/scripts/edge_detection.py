@@ -12,6 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 SIMULATION = False
+STATE = "INIT" #INIT or CHECK
 
 #Hyperparameter
 if (SIMULATION):
@@ -22,17 +23,31 @@ if (SIMULATION):
     MIN_AREA = 50
     MAX_AREA = 3000
 else:
+    # helps to eliminate noise on the table
     BLUR_SIZE = (27, 27)
     # to filter out the table depends on light conditions
     BLACK_TABEL_THRESHOLD = 150
-    # for deciding if contour is cube
+    # threshold to decide weather detected cube is same as before
+    MATCH_DISTANCE_THRESHOLD = 0.3
+    # for deciding if contour is cube - outdated probably
     MIN_EDGES = 4
     MAX_EDGES = 10
     MIN_AREA = 3800
     MAX_AREA = 5500
 
+class Cube:
+    def __init__(self, id, x, y, z, rotation):
+        self.id = id
+        self.x = x
+        self.y = y
+        self.z = z
+        self.rotation = rotation
+
+
 class CubeDetector:
     def __init__(self):
+        self.cubes = []
+
         self.cv_image = None
         self.camera_K = None
         self.camera_frame_id = None
@@ -93,6 +108,16 @@ class CubeDetector:
                 # find the cubes + publish
                 detected_cubes = self.find_cubes(contours)
 
+                if (STATE == "INIT"):
+                        self.cubes = detected_cubes
+                        # publish cube
+                        self.publish_cubes()
+                if (STATE == "CHECK"):
+                        self.match_detected_with_previous_cubes(detected_cubes)
+                if (STATE == "BUILDING"):
+                    pass
+                
+                
                 #publish debug image
                 self.publish_debug_image(self.debug_image)
 
@@ -148,8 +173,8 @@ class CubeDetector:
             text = f"Num Edges: {num_edges}, Area: {area}, Convex: {convexity}"
             M = cv2.moments(edges)
 
-            #if convexity:
-            if True:
+            if convexity:
+            #if True:
             #if (num_edges >= MIN_EDGES) and (num_edges <= MAX_EDGES) and (area >= MIN_AREA) and (area <= MAX_AREA):
             #if len(edges >=4) and len(edges <=7) and abs(cv2.contourArea(contour)) > 50 and abs(cv2.contourArea(contour)) < 2500:
                 cv2.drawContours(self.debug_image, [edges], -1, (255,0,0),2)
@@ -165,20 +190,20 @@ class CubeDetector:
                     #cv2.putText(self.debug_image, cube_text, (cx, cy -10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,0), 2)
 
                     depth = self.depth_image[cy, cx]
-                    print("depth ", depth)
+                    #print("depth ", depth)
 
                     camera_frame = self.pixel_to_camera_frame(cx, cy, depth)
                     
                     # transform points to world coordinate system
                     transformed_point = self.transform_point(camera_frame)
-                    print(cube_count, ": ", transformed_point)
+                    #print(cube_count, ": ", transformed_point)
 
                     
                     rect = cv2.minAreaRect(contour)
                     box = cv2.boxPoints(rect)
                     box = np.int0(box)
 
-                    self.check_cube(cx, cy, box)
+                    #self.check_cube(cx, cy, box)
 
                     width = int(rect[1][0])
                     height = int(rect[1][1])
@@ -206,13 +231,10 @@ class CubeDetector:
 
                     #cube_text = f"Cube {cube_count} : (" + str(round(transformed_point.point.x , 2)) + ", " + str(round(transformed_point.point.y, 2)) + ")  orientation: " + str(angle)
                     cv2.putText(self.debug_image, cube_text, (cx-150, cy -10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,0), 2)
-                    
 
-                    # publish cube
-                    self.publish_cube(cube_count, transformed_point, angle)
                     cube_count += 1
 
-                detected_cubes.append(contour)
+                detected_cubes.append(Cube(cube_count, transformed_point.point.x, transformed_point.point.y, transformed_point.point.z, angle))
             #else:
             #    if M["m00"] != 0:
             #        # Calculate centroid (position)
@@ -237,6 +259,35 @@ class CubeDetector:
                     
         print("detected Cubes: ", len(detected_cubes))
         return detected_cubes
+
+    def match_detected_with_previous_cubes(self, detected_cubes):
+        cubes_to_publish = []
+        matched_cubes_ids = []
+        matched_cubes = []
+        unmatched_cubes = []
+
+        for cube_to_check in detected_cubes:
+            matched = False
+            for prev_cube in self.cubes:
+                distance = self.calculate_distance(cube_to_check, prev_cube)
+                if distance < MATCH_DISTANCE_THRESHOLD:
+                    matched = True
+                    matched_cube = self.refine_cube_pos(prev_cube, cube_to_check)
+                    matched_cubes.append(matched_cube)
+                    matched_cubes_ids.append(matched_cube.id)
+                    break
+            if not matched:
+                unmatched_cubes.append(cube_to_check)
+                # TODO Continue with matching cubes
+                # check ids if same length as all cubes.
+                # missing id -> unmatched cube
+
+    def calculate_distance(self, cube1, cube2):
+        # Euclidean distance between two cubes
+        return ((cube1.x - cube2.x) ** 2 + (cube1.y - cube2.y) ** 2 + (cube1.z - cube2.z) ** 2) ** 0.5
+
+    def refine_cube_pos(prev_cube, cube2):
+        return Cube(prev_cube.id, (prev_cube.x + cube2.x) / 2, (prev_cube.y + cube2.y) / 2, (prev_cube.z + cube2.z) / 2, ((prev_cube.rotation + cube2.rotation) / 2))
 
     def check_cube(self, cx, cy, box):
         pass
@@ -293,21 +344,24 @@ class CubeDetector:
         except Exception as e:
             print(e)
 
-    def publish_cube(self, id, pos, angle):
-        # publish cubes
-        cube_odom = Odometry()
-        cube_odom.header.frame_id = "world"
-        cube_odom.child_frame_id = "cube_{}".format(id)
-        cube_odom.pose.pose.position.x = pos.point.x
-        cube_odom.pose.pose.position.y = pos.point.y
-        cube_odom.pose.pose.position.z = 0.0225
-        cube_odom.pose.pose.orientation.x = 0
-        cube_odom.pose.pose.orientation.y = 0
-        cube_odom.pose.pose.orientation.z = angle
-        cube_odom.pose.pose.orientation.w = 0
-        
-        cube_publisher = rospy.Publisher("cube_{}_odom".format(id), Odometry, queue_size=10)
-        cube_publisher.publish(cube_odom)
+    def publish_cubes(self):
+        if self.cubes:
+            for cube in self.cubes:
+                # publish cubes
+                cube_odom = Odometry()
+                cube_odom.header.frame_id = "world"
+                cube_odom.child_frame_id = "cube_{}".format(id)
+                cube_odom.pose.pose.position.x = cube.x
+                cube_odom.pose.pose.position.y = cube.y
+                cube_odom.pose.pose.position.z = cube.z
+                cube_odom.pose.pose.orientation.x = 0
+                cube_odom.pose.pose.orientation.y = 0
+                cube_odom.pose.pose.orientation.z = cube.rotation
+                cube_odom.pose.pose.orientation.w = 0
+
+                print("Publishing Cube {}: ({}, {}, {}) - {}".format(cube.id, round(cube.x, 3), round(cube.y, 3), round(cube.z, 3), round(cube.rotation, 3)))
+                cube_publisher = rospy.Publisher("cube_{}_odom".format(cube.id), Odometry, queue_size=10)
+                cube_publisher.publish(cube_odom)
 
     # callbacks
     def imageCallback(self, image_msg):
