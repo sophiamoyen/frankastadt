@@ -11,13 +11,14 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-SIMULATION = False
-STATE = "INIT" #INIT or CHECK
+SIMULATION = True
+STATE = "CHECK" #INIT or CHECK
 
 #Hyperparameter
 if (SIMULATION):
     BLUR_SIZE = (23, 23)
     BLACK_TABEL_THRESHOLD = 32
+    MATCH_DISTANCE_THRESHOLD = 0.01
     MIN_EDGES = 4
     MAX_EDGES = 10
     MIN_AREA = 50
@@ -28,7 +29,7 @@ else:
     # to filter out the table depends on light conditions
     BLACK_TABEL_THRESHOLD = 150
     # threshold to decide weather detected cube is same as before
-    MATCH_DISTANCE_THRESHOLD = 0.3
+    MATCH_DISTANCE_THRESHOLD = 0.01
     # for deciding if contour is cube - outdated probably
     MIN_EDGES = 4
     MAX_EDGES = 10
@@ -114,6 +115,7 @@ class CubeDetector:
                         self.publish_cubes()
                 if (STATE == "CHECK"):
                         self.match_detected_with_previous_cubes(detected_cubes)
+                        self.publish_cubes()
                 if (STATE == "BUILDING"):
                     pass
                 
@@ -263,31 +265,62 @@ class CubeDetector:
     def match_detected_with_previous_cubes(self, detected_cubes):
         cubes_to_publish = []
         matched_cubes_ids = []
-        matched_cubes = []
         unmatched_cubes = []
+
+        prev_number_of_cubes = len(self.cubes)
 
         for cube_to_check in detected_cubes:
             matched = False
             for prev_cube in self.cubes:
                 distance = self.calculate_distance(cube_to_check, prev_cube)
+                #print(prev_cube.id, " dist: ", distance)
                 if distance < MATCH_DISTANCE_THRESHOLD:
                     matched = True
                     matched_cube = self.refine_cube_pos(prev_cube, cube_to_check)
-                    matched_cubes.append(matched_cube)
+                    cubes_to_publish.append(matched_cube)
                     matched_cubes_ids.append(matched_cube.id)
                     break
             if not matched:
                 unmatched_cubes.append(cube_to_check)
                 # TODO Continue with matching cubes
                 # check ids if same length as all cubes.
-                # missing id -> unmatched cube
+                # missing id -> unmatched cubeauch 
+
+        missing_ids = self.find_missing_ids(matched_cubes_ids, prev_number_of_cubes)
+        print("Cubes on different position: ", missing_ids)
+
+        id_count = 0
+        for unmatched_cube in unmatched_cubes:
+            if (id_count < len(missing_ids)):
+                cubes_to_publish.append(Cube(missing_ids[id_count], unmatched_cube.x, unmatched_cube.y, unmatched_cube.z, unmatched_cube.rotation))
+                id_count += 1
+            else:
+                cubes_to_publish.append(Cube(prev_number_of_cubes, unmatched_cube.x, unmatched_cube.y, unmatched_cube.z, unmatched_cube.rotation))
+                prev_number_of_cubes += 1
+
+        self.cubes.clear()
+        self.cubes = cubes_to_publish
 
     def calculate_distance(self, cube1, cube2):
         # Euclidean distance between two cubes
         return ((cube1.x - cube2.x) ** 2 + (cube1.y - cube2.y) ** 2 + (cube1.z - cube2.z) ** 2) ** 0.5
 
-    def refine_cube_pos(prev_cube, cube2):
+    def refine_cube_pos(self, prev_cube, cube2):
         return Cube(prev_cube.id, (prev_cube.x + cube2.x) / 2, (prev_cube.y + cube2.y) / 2, (prev_cube.z + cube2.z) / 2, ((prev_cube.rotation + cube2.rotation) / 2))
+
+    def find_missing_ids(self, ids_vector, prev_length):
+        # Expected set of IDs from 1 to 6
+        expected_ids = set(range(0, prev_length))
+
+        # Convert the input vector to a set to remove duplicates and allow for efficient searching
+        actual_ids = set(ids_vector)
+
+        # Find the difference between the expected IDs and the actual IDs to find the missing ones
+        missing_ids = expected_ids - actual_ids
+
+        # Return the missing IDs as a sorted list (optional)
+        return sorted(missing_ids)
+
 
     def check_cube(self, cx, cy, box):
         pass
@@ -350,7 +383,7 @@ class CubeDetector:
                 # publish cubes
                 cube_odom = Odometry()
                 cube_odom.header.frame_id = "world"
-                cube_odom.child_frame_id = "cube_{}".format(id)
+                cube_odom.child_frame_id = "cube_{}".format(cube.id)
                 cube_odom.pose.pose.position.x = cube.x
                 cube_odom.pose.pose.position.y = cube.y
                 cube_odom.pose.pose.position.z = cube.z
