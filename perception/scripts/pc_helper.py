@@ -37,14 +37,46 @@ def create_cube_gt(edge_len):
     Returns:
         cube_gt (open3d.geometry.PointCloud): point cloud of the cube
     '''
-
+    
     mesh = o3d.geometry.TriangleMesh.create_box(width=edge_len, height=edge_len, depth=edge_len)
-    cube_gt = mesh.sample_points_uniformly(number_of_points=500)
+    cube_gt = mesh.sample_points_uniformly(number_of_points=5000)
+    cube_gt_x = cube_gt.select_by_index(np.where(np.asarray(cube_gt.points)[:, 0] < 0.001)[0])
+    cube_gt_y = cube_gt.select_by_index(np.where(np.asarray(cube_gt.points)[:, 1] < 0.001)[0])
+    cube_gt_z = cube_gt.select_by_index(np.where(np.asarray(cube_gt.points)[:, 2] > edge_len - 0.001)[0])
+    cube_gt = cube_gt_x + cube_gt_y + cube_gt_z
     points = np.asarray(cube_gt.points)
     transformed_points = points - np.array([edge_len/2, edge_len/2, edge_len/2])
     cube_gt.points = o3d.utility.Vector3dVector(transformed_points)
     return cube_gt
 
+def create_pyramid_gt(base_len, num_cubes, edge_len):
+    '''
+    Create a pyramid with the given base length and number of cubes
+    Args:
+        base_len (float): base length of the pyramid
+        num_cubes (int): number of cubes
+    Returns:
+        pyramid_gt (open3d.geometry.PointCloud): point cloud of the pyramid
+    '''
+    pyramid_gt = o3d.geometry.PointCloud()
+    counter = 0
+    for i in range(base_len, 0, -1):
+        for j in range(i):
+            counter += 1
+            cube = create_cube_gt(edge_len)
+            cube.points = o3d.utility.Vector3dVector(np.asarray(cube.points) + np.array([j*edge_len +(base_len-i)*(edge_len/2), 0, (base_len-i)*edge_len]))
+            pyramid_gt += cube
+            if counter >= num_cubes:
+                pyramid_gt_x = pyramid_gt.select_by_index(np.where(np.asarray(pyramid_gt.points)[:, 0] < 0.001+(base_len-i)*edge_len/2)[0])
+                pyramid_gt_y = pyramid_gt.select_by_index(np.where(np.asarray(pyramid_gt.points)[:, 1] < 0.001-edge_len/2)[0])
+                pyramid_gt_z = pyramid_gt.select_by_index(np.where(np.asarray(pyramid_gt.points)[:, 2] > (2*(base_len-i)+1)*edge_len/2 - 0.001)[0])
+                pyramid_gt = pyramid_gt_x + pyramid_gt_y + pyramid_gt_z
+                return pyramid_gt
+        pyramid_gt_x = pyramid_gt.select_by_index(np.where(np.asarray(pyramid_gt.points)[:, 0] < 0.001+(base_len-i)*edge_len/2)[0])
+        pyramid_gt_y = pyramid_gt.select_by_index(np.where(np.asarray(pyramid_gt.points)[:, 1] < 0.001-edge_len/2)[0])
+        pyramid_gt_z = pyramid_gt.select_by_index(np.where(np.asarray(pyramid_gt.points)[:, 2] > (2*(base_len-i)+1)*edge_len - 0.001)[0])
+        pyramid_gt = pyramid_gt_x + pyramid_gt_y + pyramid_gt_z
+    return pyramid_gt
 
 def crop_pointcloud(pc, boundX, boundY, boundZ):
     '''
@@ -240,7 +272,6 @@ def transform_pointcloud(msg, target_frame):
     Returns:
         o3d_pc (open3d.geometry.PointCloud): transformed point cloud
     '''
-    
     tf_buffer = tf2_ros.Buffer()
     tf_listener = tf2_ros.TransformListener(tf_buffer)
     # Get the transform from the camera frame to the world frame
