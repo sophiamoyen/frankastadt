@@ -10,6 +10,6 @@
   <include file="$(find zed_wrapper)/launch/zed2.launch"/>
 
   <node pkg="tf" type="static_transform_publisher" name="camera_link_broadcaster" 
-        args="-0.097397 0 0.0274111 0 -1.344473 0 panda_hand zed2_left_camera_frame 100" />
+        args="-0.087397 0 0.0274111 0 -1.344473 0 panda_hand zed2_left_camera_frame 100" />
 
 </launch>

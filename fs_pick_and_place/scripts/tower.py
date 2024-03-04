@@ -171,10 +171,10 @@ class Tower():
 
 
         if orientation == "vertical":
-            #cubes_tower_pos.append([desired_place[0]+0.045,desired_place[1],0.04]) # Real world
-            cubes_tower_pos.append([desired_place[0]+0.045,desired_place[1],rospy.get_param("cube_0_z")])
-            #cubes_tower_pos.append([desired_place[0]+0.0275,desired_place[1],0.1]) # Real world
-            cubes_tower_pos.append([desired_place[0]+0.0275,desired_place[1],rospy.get_param("cube_0_z")+0.1]) 
+            cubes_tower_pos.append([desired_place[0]+0.055,desired_place[1],0.04]) # Real world
+            #cubes_tower_pos.append([desired_place[0]+0.045,desired_place[1],rospy.get_param("cube_0_z")]) # Simulation
+            cubes_tower_pos.append([desired_place[0]+0.0275,desired_place[1],0.1]) # Real world
+            #cubes_tower_pos.append([desired_place[0]+0.0275,desired_place[1],rospy.get_param("cube_0_z")+0.1]) # Simulation
 
         if orientation == "horizontal":
             cubes_tower_pos.append([desired_place[0],desired_place[1]+0.045,0.04])
@@ -341,6 +341,12 @@ class Tower():
 
 if __name__ == "__main__":
     cla = Tower()
+    cla.collision_scene()
+    cla.plan_and_move.move_standard_pose()
+
+
+
+
 
     #cube_positions = [[0.63, 0.26],[0.42,0.09],[0.29,-0.20],[0.63,-0.22],[0.43,-0.31]]
     #cube_indexes = [0,1,2,3,4]
@@ -349,14 +355,14 @@ if __name__ == "__main__":
     lim_x = [0.10,0.80]
     safety_distance = (cube_size*math.sqrt(2))+0.01
     desired_center = [0.50,0]
-    n_detected_cubes = 6
+    n_detected_cubes = 3
 
     
     cube_positions = []
     cube_indexes = []
     for i in range(n_detected_cubes):
-        pick_position = [rospy.get_param("cube_{}_x".format(i)),
-                         rospy.get_param("cube_{}_y".format(i))]
+        pick_position = [rospy.get_param("cube_{}_x".format(i))-0.015,
+                         rospy.get_param("cube_{}_y".format(i))-0.05]
         cube_positions.append(pick_position)
         cube_indexes.append(i)
 
@@ -415,11 +421,13 @@ if __name__ == "__main__":
     # Getting Pick  SIMULATION
     pick_positions = [[*closest_cube,rospy.get_param("cube_0_z")]]
     tower_closest_cube, closest_cube_index = cla.find_closest_cube_origin(cubes_to_move, closest_cube, cubes_to_move_indexes)
-    pick_positions.append([*tower_closest_cube,rospy.get_param("cube_0_z")])
+    #pick_positions.append([*tower_closest_cube,rospy.get_param("cube_0_z")]) # Simulation
+    pick_positions.append([*tower_closest_cube,0.04])
     cubes_to_move_indexes.remove(closest_cube_index)
     cubes_to_move.remove(tower_closest_cube)
     tower_closest_cube, closest_cube_index = cla.find_closest_cube_origin(cubes_to_move, closest_cube, cubes_to_move_indexes)
-    pick_positions.append([*tower_closest_cube,rospy.get_param("cube_0_z")])
+    #pick_positions.append([*tower_closest_cube,rospy.get_param("cube_0_z")]) # Simulation
+    pick_positions.append([*tower_closest_cube,0.04])
 
     print("=========== Place positions:",cubes_tower_pos)
     print("=========== Pick positions:", pick_positions)
@@ -431,5 +439,5 @@ if __name__ == "__main__":
 
 
     cla.plan_and_move.move_standard_pose()
-
+    
 
