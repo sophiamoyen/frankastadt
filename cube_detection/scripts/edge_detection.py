@@ -12,7 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 SIMULATION = False
-STATE = "INIT" #INIT or CHECK
+STATE = "CHECK" #INIT or CHECK
 
 #Hyperparameter
 if (SIMULATION):
@@ -221,7 +221,7 @@ class CubeDetector:
 
                     cube_text = f"Cube {cube_count} : (" + str(round(width, 2)) + ", " + str(round(height, 2)) + ") " + str(height/width)
 
-                    if (0.8 > ratio or ratio > 1.2):
+                    if (0.8 > ratio or ratio > 1.3):
                         cube_text = f"2 Cubes detected {cube_count} : (" + str(round(width, 2)) + ", " + str(round(height, 2)) + ") " + str(height/width)
 
                         # todo: split the cubes
