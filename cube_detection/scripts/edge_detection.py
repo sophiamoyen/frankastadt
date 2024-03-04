@@ -11,8 +11,8 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-SIMULATION = True
-STATE = "CHECK" #INIT or CHECK
+SIMULATION = False
+STATE = "INIT" #INIT or CHECK
 
 #Hyperparameter
 if (SIMULATION):
