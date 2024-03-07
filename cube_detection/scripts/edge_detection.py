@@ -334,9 +334,14 @@ class CubeDetector:
     def check_for_cubes(self, img, depth):
         # Convert to grayscale
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        self.show_image(gray, "Gray", 'gray')
-        self.show_image(depth, "depth", "gray")
+        #self.show_image(gray, "Gray", 'gray')
+        #self.show_image(depth, "depth", "gray")
         
+        #closest_point = np.unravel_index(np.argmin(depth), depth)
+        #print("Top Area Coordinates:", closest_point)
+
+
+
         #hist, bins = np.histogram(gray, bins=256, range=[0,256])
         #plt.figure(figsize=(10,4))
         #plt.plot(hist, color="gray")
@@ -349,19 +354,22 @@ class CubeDetector:
 
         # Apply Gaussian blur
         blurred = cv2.GaussianBlur(gray, (3,3), 0)
-        self.show_image(blurred, "Blur", 'gray')
+        #self.show_image(blurred, "Blur", 'gray')
 
         #thresholded = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 299, 15)
         _, thresholded = cv2.threshold(gray, 20 , 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-        self.show_image(thresholded, "thresholded", 'gray')
+        #self.show_image(thresholded, "thresholded", 'gray')
 
         # canny for edge detection
         detected_edges = cv2.Canny(blurred, 0, 150)
         self.show_image(detected_edges, "Detected Edges", 'gray')
 
         contours, _ = cv2.findContours(detected_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
+        for contour in contours:
+            epsilon = 0.01 * cv2.arcLength(contour, True)
+            edges = cv2.approxPolyDP(contour, epsilon, True)
         # Draw contours on the original image
+
         contour_image = img.copy()  # Create a copy of the original image
         cv2.drawContours(contour_image, contours, -1, (0, 255, 255), 2)  # Draw contours with green color and thickness 2
 
