@@ -355,7 +355,7 @@ if __name__ == "__main__":
     lim_x = [0.10,0.80]
     safety_distance = (cube_size*math.sqrt(2))+0.01
     desired_center = [0.50,0]
-    n_detected_cubes = 3
+    n_detected_cubes = 6
 
     
     cube_positions = []
