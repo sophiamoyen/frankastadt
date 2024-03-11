@@ -22,7 +22,10 @@ class PCPyramidChecking():
     def __init__(self):
 
         # Set the work environment
-        self.work_environment = "gazebo"
+        self.work_environment = "real"
+        self.plan_and_move = PlanAndMove()
+        self.sleep_turn = False
+
 
         # Additional parameters
         self.cube_diagonal = 0.0389
@@ -50,7 +53,7 @@ class PCPyramidChecking():
             self.world_frame = "world"
             self.subscriber_node = "/zed2/zed_node/point_cloud/cloud_registered"
             self.boundX = [0, 1]
-            self.boundY = [-0.5, 0.5]
+            self.boundY = [-0.75, 0.75]
             self.boundZ = [-0.1, 0.2]
             self.eps = 0.03
             self.min_points = 40
@@ -59,7 +62,7 @@ class PCPyramidChecking():
             self.distance_threshold = 0.02
 
         # Create a publisher for the downsampled point cloud
-        self.pub = rospy.Publisher('segmented_pc', PointCloud2, queue_size=10)
+        self.pub = rospy.Publisher('pyramid_pc', PointCloud2, queue_size=10)
 
         # Create a publisher for the odometry of the cubes
         self.pyramid_publisher = rospy.Publisher('pyramid_odom', Odometry, queue_size=10)
@@ -95,26 +98,37 @@ class PCPyramidChecking():
         Args:
             msg (sensor_msgs.msg.PointCloud2): point cloud message
         '''
-        self.iteration += 1
-        #plan_and_move = PlanAndMove()
-        if self.iteration == 1:
-            self.iteration = 1
-            # Go to standard pose
+        if self.sleep_turn:
+            rospy.sleep(2)
+            self.sleep_turn = False
+            return
         
-        elif self.iteration == 3:
-            self.iteration = 3
+        if self.iteration == 0:
+            # Go to standard pose
+            self.iteration += 1
+            self.plan_and_move.move_standard_pose()
+            self.sleep_turn = True
+        
+        elif self.iteration == 2:
             # Go somewhere left from standard pose
-
-        elif self.iteration == 5:
-            self.iteration = 5
+            self.iteration += 1
+            self.plan_and_move.move_left_pose()
+            self.sleep_turn = True
+        
+        elif self.iteration == 4:
             # Go somewhere right from standard pose
+            self.iteration += 1
+            self.plan_and_move.move_right_pose()
+            self.sleep_turn = True
+        
 
-
-        else:
+        elif self.iteration != -1:
             # Create the ground truth pyramid
-            basis = 4
-            num_cubes = 6
+            """
+            basis = 3
+            num_cubes = 5
             pyramid_gt = create_pyramid_gt(basis, num_cubes, self.edge_len)
+            """
 
             # Call the transformation to world frame
             transformed_pc = transform_pointcloud(msg, self.world_frame)
@@ -127,9 +141,15 @@ class PCPyramidChecking():
             # Cropping
             zf_cloud = crop_pointcloud(downpcd, self.boundX, self.boundY, self.boundZ)
 
-            if self.iteration < 6:
+            if self.iteration < 5:
+                self.iteration += 1
+                print("adding up pc")
                 self.evaluation_pc += zf_cloud
+                print("pc size:", self.evaluation_pc)
+
             else:
+                self.evaluation_pc += zf_cloud
+                print("pc size:", self.evaluation_pc)
                 # Segment the largest planar component from the cropped cloud
                 outlier_cloud = segment_pc(self.evaluation_pc, self.distance_threshold)
                 
@@ -142,50 +162,58 @@ class PCPyramidChecking():
                 max_label = labels.max()
 
                 # Determine center and rotation of each cluster
-                for i in range(max_label + 1):
-                    cube = outlier_cloud.select_by_index(np.where(labels == i)[0])
+                for j in range(2,7):
+                    pyramid_gt = create_pyramid_gt(3, j, self.edge_len)
+                    for i in range(max_label + 1):
+                        cube = outlier_cloud.select_by_index(np.where(labels == i)[0])
 
-                    # Perform ICP to separate the cubes within the cluster
-                    max_iter = 10
-                    count = 0
-                    while np.asarray(cube.points).shape[0] > self.icp_min_points and count < max_iter:
-                        count += 1
+                        # Perform ICP to separate the cubes within the cluster
+                        max_iter = 10
+                        count = 0
+                        while np.asarray(cube.points).shape[0] > self.icp_min_points and count < max_iter:
+                            count += 1
 
-                        # ICP
-                        reg_p2p = o3d.pipelines.registration.registration_icp(
-                            pyramid_gt[2], cube, 1, np.array([[1,0,0,0.5],[0,1,0,0],[0,0,1,0.8],[0,0,0,1]]), o3d.pipelines.registration.TransformationEstimationPointToPoint())
-                        first_config = True
-                        if reg_p2p.inlier_rmse > 0.02:
-                            continue
+                            # ICP
+                            reg_p2p = o3d.pipelines.registration.registration_icp(
+                                pyramid_gt[2], cube, 1, np.array([[1,0,0,0.5],[0,1,0,0],[0,0,1,0.8],[0,0,0,1]]), o3d.pipelines.registration.TransformationEstimationPointToPoint())
+                            if reg_p2p.inlier_rmse > 0.0075 or reg_p2p.inlier_rmse < 0.006:
+                                continue
+                            
                         
-                        if first_config:
-                            print("Pyramid state with base=" + str(basis) + " and number of cubes=" + str(num_cubes) + " found with ICP with first gt model")
-                        else: 
-                            print("Pyramid state with base=" + str(basis) + " and number of cubes=" + str(num_cubes) + " found with ICP with second gt model")
-                        print(reg_p2p)
+                            print("Pyramid state with base=3 and number of cubes=" + str(j) + " found with ICP")
 
-                        # Retrieve position and orientation from the transformation matrix TODO: Check transformation between raw_pos and pos
-                        pos = [reg_p2p.transformation[0, 3], reg_p2p.transformation[1, 3], reg_p2p.transformation[2, 3]]
-                        rotation = np.array([[reg_p2p.transformation[0, 0], -reg_p2p.transformation[1, 0], reg_p2p.transformation[2, 0]],
-                                            [reg_p2p.transformation[0, 1], -reg_p2p.transformation[1, 1], reg_p2p.transformation[2, 1]],
-                                            [reg_p2p.transformation[0, 2], -reg_p2p.transformation[1, 2], reg_p2p.transformation[2, 2]]])
-                        rot = rotation_matrix_to_quaternion(rotation)
-                        self.publish_odometry(pos, rot, self.world_frame, self.world_frame)
+                            print(reg_p2p)
 
-                        # Remove the points within the radius of its diagonal
-                        cube = cube.select_by_index(np.where(np.linalg.norm(np.asarray(cube.points) - pos, axis=1) > self.cube_diagonal)[0])
+                            # Retrieve position and orientation from the transformation matrix TODO: Check transformation between raw_pos and pos
+                            pos = [reg_p2p.transformation[0, 3], reg_p2p.transformation[1, 3], reg_p2p.transformation[2, 3]]
+                            rotation = np.array([[reg_p2p.transformation[0, 0], -reg_p2p.transformation[1, 0], reg_p2p.transformation[2, 0]],
+                                                [reg_p2p.transformation[0, 1], -reg_p2p.transformation[1, 1], reg_p2p.transformation[2, 1]],
+                                                [reg_p2p.transformation[0, 2], -reg_p2p.transformation[1, 2], reg_p2p.transformation[2, 2]]])
+                            rot = rotation_matrix_to_quaternion(rotation)
+                            self.publish_odometry(pos, rot, self.world_frame, self.world_frame)
 
-                        # Print the position and orientation
-                        print("Position of found pyramid:")
-                        print(pos)
-                        print(rotation_matrix_to_euler_angles(rotation), "\n")
-                        break
+                            # Remove the points within the radius of its diagonal
+                            cube = cube.select_by_index(np.where(np.linalg.norm(np.asarray(cube.points) - pos, axis=1) > self.cube_diagonal)[0])
+
+                            # Print the position and orientation
+                            print("Position of found pyramid:")
+                            print(pos)
+                            print(rotation_matrix_to_euler_angles(rotation), "\n")
+                            break
+                print("done searching for pyramid")
+                # Assign colors to the segmented point clouds for the visualization
+                colors = plt.get_cmap("tab20")(labels / (max_label if max_label > 0 else 1))
+                colors[labels < 0] = 0
+                outlier_cloud.colors = o3d.utility.Vector3dVector(colors[:, :3])
+                pcd_ros = o3dpc_to_rospc(outlier_cloud, msg.header, msg.fields, frame_id=self.world_frame)
+                self.iteration = -1
+                self.pub.publish(pcd_ros)
+                
+                
     
 if __name__ == '__main__':
 
-    rospy.init_node('pc_pyramid_checking_node')
-    print("started pc pyramid checking node")
-
+    """
     pcds = create_pyramid_gt(5, 8, 0.045)
     pcd = pcds[2]
     
@@ -194,7 +222,7 @@ if __name__ == '__main__':
                                   front=[0.4257, -0.2125, -0.8795],
                                   lookat=[0, 0, 0],
                                   up=[-0.0694, -0.9768, 0.2024])
-    
+    """
     pc_pyramid_checking = PCPyramidChecking()
     rospy.Subscriber(pc_pyramid_checking.subscriber_node, PointCloud2, pc_pyramid_checking.pointcloud_callback)
 

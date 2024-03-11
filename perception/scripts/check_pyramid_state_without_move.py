@@ -22,7 +22,7 @@ class PCPyramidCheckingWoMove():
     def __init__(self):
 
         # Set the work environment
-        self.work_environment = "gazebo"
+        self.work_environment = "real"
 
         # Additional parameters
         self.cube_diagonal = 0.0389
@@ -41,6 +41,7 @@ class PCPyramidCheckingWoMove():
             self.voxel_size = 0.001
             self.icp_min_points = 100
             self.distance_threshold = 0.01
+            self.rmse_threshold = 0.005
         elif self.work_environment == "real":
             self.world_frame = "world"
             self.subscriber_node = "/zed2/zed_node/point_cloud/cloud_registered"
@@ -49,9 +50,10 @@ class PCPyramidCheckingWoMove():
             self.boundZ = [-0.1, 0.2]
             self.eps = 0.03
             self.min_points = 40
-            self.voxel_size = 0.005
+            self.voxel_size = 0.001
             self.icp_min_points = 50
             self.distance_threshold = 0.02
+            self.rmse_threshold = 0.012
 
         # Create a publisher for the downsampled point cloud
         self.pub = rospy.Publisher('segmented_pc', PointCloud2, queue_size=10)
@@ -92,8 +94,8 @@ class PCPyramidCheckingWoMove():
         '''
 
         # Create the ground truth pyramid
-        basis = 4
-        num_cubes = 9
+        basis = 3
+        num_cubes = 5
         pyramid_gt = create_pyramid_gt_alt(basis, num_cubes, self.edge_len)
 
         # Call the transformation to world frame
@@ -132,11 +134,11 @@ class PCPyramidCheckingWoMove():
                 reg_p2p = o3d.pipelines.registration.registration_icp(
                     pyramid_gt[0], cube, 1, np.array([[1,0,0,0.5],[0,1,0,0],[0,0,1,0.8],[0,0,0,1]]), o3d.pipelines.registration.TransformationEstimationPointToPoint())
                 first_config = True
-                if reg_p2p.inlier_rmse > 0.005:
+                if reg_p2p.inlier_rmse > self.rmse_threshold:
                     first_config = False
                     reg_p2p = o3d.pipelines.registration.registration_icp(
                         pyramid_gt[1], cube, 1, np.array([[1,0,0,0.5],[0,1,0,0],[0,0,1,0.8],[0,0,0,1]]), o3d.pipelines.registration.TransformationEstimationPointToPoint())
-                    if reg_p2p.inlier_rmse > 0.005:
+                    if reg_p2p.inlier_rmse > self.rmse_threshold:
                         continue
                 
                 if first_config:
@@ -160,24 +162,25 @@ class PCPyramidCheckingWoMove():
                 print("Position of found pyramid:")
                 print(pos)
                 print(rotation_matrix_to_euler_angles(rotation), "\n")
-                break
+                return
         print("no pyramid found")
     
 if __name__ == '__main__':
 
     rospy.init_node('pc_pyramid_checking_wo_move_node')
     print("started pc pyramid checking node")
-    '''
-    pcds = create_pyramid_gt_alt(5, 15, 0.045)
-    pcd = pcds[0]
     
+    pcds = create_pyramid_gt_alt(3, 6, 0.045)
+    pcd = pcds[2]
+    """
     o3d.visualization.draw_geometries([pcd],
                                   zoom=0.3412,
                                   front=[0.4257, -0.2125, -0.8795],
                                   lookat=[0, 0, 0],
                                   up=[-0.0694, -0.9768, 0.2024])
-    '''
+    """
     pc_pyramid_checking = PCPyramidCheckingWoMove()
     rospy.Subscriber(pc_pyramid_checking.subscriber_node, PointCloud2, pc_pyramid_checking.pointcloud_callback)
 
     rospy.spin()
+    

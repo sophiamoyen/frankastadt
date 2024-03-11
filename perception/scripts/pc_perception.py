@@ -9,6 +9,7 @@ import sensor_msgs.point_cloud2 as pc2
 from sensor_msgs.msg import PointCloud2, PointField
 from geometry_msgs.msg import TransformStamped
 from nav_msgs.msg import Odometry
+from std_msgs.msg import String
 import tf2_geometry_msgs
 import pcl
 import open3d as o3d
@@ -21,7 +22,7 @@ class PCPerception():
     def __init__(self):
 
         # Set the work environment
-        self.work_environment = "gazebo"
+        self.work_environment = "real"
         self.using_icp = True
         self.single_perception = False
         self.first_perception_done = False
@@ -62,6 +63,8 @@ class PCPerception():
 
         # Create a publisher for the downsampled point cloud
         self.pub = rospy.Publisher('segmented_pc', PointCloud2, queue_size=10)
+
+        self.num_of_cubes_pub = rospy.Publisher('num_cubes', String, queue_size=10)
 
         # Create a publisher for the odometry of the cubes
         self.cube_publisher = np.array([None]*self.number_of_cubes)
@@ -169,7 +172,7 @@ class PCPerception():
                         self.cube_gt, cube, 1, np.array([[1,0,0,0.5],[0,1,0,0],[0,0,1,0.8],[0,0,0,1]]), o3d.pipelines.registration.TransformationEstimationPointToPoint())
 
                     
-                    if reg_p2p.inlier_rmse > 0.02:
+                    if reg_p2p.inlier_rmse > 0.02 or reg_p2p.inlier_rmse == 0:
                         continue
                     
 
@@ -196,6 +199,7 @@ class PCPerception():
                     self.first_perception_done = True
         
         # Assign colors to the segmented point clouds for the visualization
+        self.num_of_cubes_pub.publish(str(cube_count))
         colors = plt.get_cmap("tab20")(labels / (max_label if max_label > 0 else 1))
         colors[labels < 0] = 0
         outlier_cloud.colors = o3d.utility.Vector3dVector(colors[:, :3])
