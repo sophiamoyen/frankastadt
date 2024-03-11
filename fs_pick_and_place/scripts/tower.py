@@ -146,12 +146,12 @@ class Tower():
         plt.legend(loc='upper right')
         plt.show()
 
-    def find_closest_cube_origin(self, cube_positions, indexes):
+    def find_closest_cube(self, cube_positions, indexes, origin=(0.5,0)):
         closest_distance_origin = 1000 # Set distance very high
 
         i = 0
         for cube_pos in cube_positions:
-            distance_origin = math.dist(cube_pos,self.desired_center)
+            distance_origin = math.dist(cube_pos, origin)
             if distance_origin < closest_distance_origin:
                 # Checks if this cube is closer to the desired center than the previous ones
                 closest_distance_origin = distance_origin

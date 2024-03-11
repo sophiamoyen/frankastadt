@@ -34,10 +34,10 @@ if __name__ == "__main__":
 
     cla.plot_free_space(free_positions, 
                         impossible_positions, 
-                        cube_positions
+                        cube_positions,
                         cube_indexes)
 
-    closest_cube, closest_cube_index = cla.find_closest_cube_origin(cube_positions, cube_indexes)
+    closest_cube, closest_cube_index = cla.find_closest_cube(cube_positions, cube_indexes)
     print("========== Removed cube_{} from occupied space".format(closest_cube_index))
 
 
@@ -67,11 +67,11 @@ if __name__ == "__main__":
 
     # Getting Pick  SIMULATION
     pick_positions = [[*closest_cube,rospy.get_param("cube_0_z")]]
-    tower_closest_cube, closest_cube_index = cla.find_closest_cube_origin(cubes_to_move, closest_cube, cubes_to_move_indexes)
+    tower_closest_cube, closest_cube_index = cla.find_closest_cube(cubes_to_move, cubes_to_move_indexes, closest_cube)
     pick_positions.append([*tower_closest_cube,rospy.get_param("cube_0_z")])
     cubes_to_move_indexes.remove(closest_cube_index)
     cubes_to_move.remove(tower_closest_cube)
-    tower_closest_cube, closest_cube_index = cla.find_closest_cube_origin(cubes_to_move, closest_cube, cubes_to_move_indexes)
+    tower_closest_cube, closest_cube_index = cla.find_closest_cube(cubes_to_move, cubes_to_move_indexes, closest_cube)
     pick_positions.append([*tower_closest_cube,rospy.get_param("cube_0_z")])
 
     print("=========== Place positions:",cubes_tower_pos)
