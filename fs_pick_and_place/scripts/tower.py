@@ -11,8 +11,13 @@ import matplotlib.patches as patches
 import sys
 
 class Tower():
-    def __init__(self):
+    def __init__(self, cube_size=0.045, lim_x=[0.10,0.80], lim_y=[-0.50,0.50], desired_center= [0.50,0]):
         self.plan_and_move = PlanAndMove()
+        self.cube_size = cube_size  # cm
+        self.lim_y = lim_y
+        self.lim_x = lim_x
+        self.safety_distance = self.cube_size*math.sqrt(2)
+        self.desired_center = desired_center
         
         
     def get_detected_cubes(self, n_detected_cubes):
@@ -27,16 +32,12 @@ class Tower():
         
 
 
-    def find_free_space(self, cube_positions, cube_size, lim_x, lim_y, safety_distance):
+    def find_free_space(self, cube_positions):
         """
         Finds free space for a group of cubes on the table with reserved space in each cube.
 
         Args:
             cube_positions: List of tuples representing occupied positions (x, y) in cm.
-            cube_size: Size of the cube in cm.
-            lim_x: Tuble (x_min,x_max) of table
-            lim_y: Tuple (y_min,y_max) of table
-            safety_distance: Min distance from center of cube to consider free space
 
         Returns:
             free_space: List of tuples representing free space positions (x, y) in cm.
@@ -44,13 +45,13 @@ class Tower():
         """
         free_positions = []
         impossible_positions = []
-        x_min = lim_x[0]
-        x_max = lim_x[1]
-        y_min = lim_y[0]
-        y_max = lim_y[1]
+        x_min = self.lim_x[0]
+        x_max = self.lim_x[1]
+        y_min = self.lim_y[0]
+        y_max = self.lim_y[1]
 
-        x_coords = [x * cube_size for x in range(int(x_min // cube_size)+1, int(x_max // cube_size)+1)]
-        y_coords = [y * cube_size for y in range(int(y_min // cube_size)+1, int(y_max // cube_size)+1)]
+        x_coords = [x * self.cube_size for x in range(int(x_min // self.cube_size)+1, int(x_max // self.cube_size)+1)]
+        y_coords = [y * self.cube_size for y in range(int(y_min // self.cube_size)+1, int(y_max // self.cube_size)+1)]
         x_limits = [x_coords[0], x_coords[-1]]
         y_limits = [y_coords[0], y_coords[-1]]
 
@@ -60,7 +61,7 @@ class Tower():
                 free = True
                 
                 for cube_pos in cube_positions:
-                    if (math.dist(grid_pos,cube_pos) <= safety_distance) or (x in x_limits) or (y in y_limits):
+                    if (math.dist(grid_pos,cube_pos) <= self.safety_distance) or (x in x_limits) or (y in y_limits):
                         free = False
                         break
 
@@ -73,7 +74,7 @@ class Tower():
 
         return free_positions, impossible_positions
 
-    def plot_free_space(self, free_positions, impossible_positions, cube_size, cube_positions, lim_x, lim_y, safety_distance, cube_indexes):
+    def plot_free_space(self, free_positions, impossible_positions, cube_positions,cube_indexes):
         # Plot occupied and free spaces
         fig, ax = plt.subplots(figsize=((8,10)))
 
@@ -88,24 +89,24 @@ class Tower():
         i = 0
         for x, y in cube_positions:
             # Plot cubes
-            square = patches.Rectangle((x-0.0275, y-0.0275), 0.045, 0.045, edgecolor='black', facecolor=colors[cube_indexes[i]], label="cube_{}".format(cube_indexes[i]))
-            Drawing_colored_circle = plt.Circle((x, y), safety_distance, fill = False)
+            square = patches.Rectangle((x-0.0275, y-0.0275), self.cube_size, self.cube_size, edgecolor='black', facecolor=colors[cube_indexes[i]], label="cube_{}".format(cube_indexes[i]))
+            Drawing_colored_circle = plt.Circle((x, y), self.safety_distance, fill = False)
             ax.add_artist( Drawing_colored_circle )
             ax.add_patch(square)
             plt.gca().set_aspect('equal', adjustable='box')
             i += 1
             
-        plt.plot(.5,0,'*', markersize=20, color="black", label="Origin")
-        plt.xlim(*lim_x)
-        plt.ylim(*lim_y)
+        plt.plot(*self.desired_center,'*', markersize=20, color="black", label="Origin")
+        plt.xlim(*self.lim_x)
+        plt.ylim(*self.lim_y)
         plt.xlabel("Y (m)")
         plt.ylabel("X (m)")
         plt.title("Occupancy Grid")
         plt.legend(loc='upper right')
         plt.show()
 
-    def plot_tower_place(self, free_positions, impossible_positions, cube_size, cube_positions, 
-                         lim_x, lim_y, safety_distance, cube_indexes, cubes_tower_pos):
+    def plot_tower_place(self, free_positions, impossible_positions, cube_positions, 
+                         cube_indexes, cubes_tower_pos):
         # Plot occupied and free spaces
         fig, ax = plt.subplots(figsize=((8,10)))
 
@@ -120,8 +121,8 @@ class Tower():
         i = 0
         for x, y in cube_positions:
             # Plot cubes
-            square = patches.Rectangle((x-0.0275, y-0.0275), 0.045, 0.045, edgecolor='black', facecolor=colors[cube_indexes[i]], label="cube_{}".format(cube_indexes[i]))
-            Drawing_colored_circle = plt.Circle((x, y), safety_distance, fill = False)
+            square = patches.Rectangle((x-0.0275, y-0.0275), self.cube_size, self.cube_size, edgecolor='black', facecolor=colors[cube_indexes[i]], label="cube_{}".format(cube_indexes[i]))
+            Drawing_colored_circle = plt.Circle((x, y), self.safety_distance, fill = False)
             ax.add_artist( Drawing_colored_circle )
             ax.add_patch(square)
             plt.gca().set_aspect('equal', adjustable='box')
@@ -130,27 +131,27 @@ class Tower():
         i = 0
         for cube_pos in cubes_tower_pos[:2]:
             tower = patches.Rectangle((cube_pos[0]-0.0275, cube_pos[1]-0.0275), 0.045, 0.045, edgecolor='black', facecolor='gold', label="tower_cube_{}".format(i))
-            Drawing_colored_circle = plt.Circle((cube_pos[0], cube_pos[1]), safety_distance, fill = False)
+            Drawing_colored_circle = plt.Circle((cube_pos[0], cube_pos[1]), self.safety_distance, fill = False)
             ax.add_artist( Drawing_colored_circle )
             ax.add_patch(tower)
             plt.gca().set_aspect('equal', adjustable='box')
             i += 1
             
-        plt.plot(0.5,0,'*', markersize=20, color="black", label="Origin")
-        plt.xlim(*lim_x)
-        plt.ylim(*lim_y)
+        plt.plot(*self.desired_center,'*', markersize=20, color="black", label="Origin")
+        plt.xlim(*self.lim_x)
+        plt.ylim(*self.lim_y)
         plt.xlabel("Y (m)")
         plt.ylabel("X (m)")
         plt.title("Occupancy Grid")
         plt.legend(loc='upper right')
         plt.show()
 
-    def find_closest_cube_origin(self, cube_positions, desired_center, indexes):
+    def find_closest_cube_origin(self, cube_positions, indexes):
         closest_distance_origin = 1000 # Set distance very high
 
         i = 0
         for cube_pos in cube_positions:
-            distance_origin = math.dist(cube_pos,desired_center)
+            distance_origin = math.dist(cube_pos,self.desired_center)
             if distance_origin < closest_distance_origin:
                 # Checks if this cube is closer to the desired center than the previous ones
                 closest_distance_origin = distance_origin
@@ -171,10 +172,10 @@ class Tower():
 
 
         if orientation == "vertical":
-            cubes_tower_pos.append([desired_place[0]+0.055,desired_place[1],0.04]) # Real world
-            #cubes_tower_pos.append([desired_place[0]+0.045,desired_place[1],rospy.get_param("cube_0_z")]) # Simulation
-            cubes_tower_pos.append([desired_place[0]+0.0275,desired_place[1],0.1]) # Real world
-            #cubes_tower_pos.append([desired_place[0]+0.0275,desired_place[1],rospy.get_param("cube_0_z")+0.1]) # Simulation
+            #cubes_tower_pos.append([desired_place[0]+0.055,desired_place[1],0.04]) # Real world
+            cubes_tower_pos.append([desired_place[0]+0.045,desired_place[1],rospy.get_param("cube_0_z")]) # Simulation
+            #cubes_tower_pos.append([desired_place[0]+0.0275,desired_place[1],0.1]) # Real world
+            cubes_tower_pos.append([desired_place[0]+0.0275,desired_place[1],rospy.get_param("cube_0_z")+0.1]) # Simulation
 
         if orientation == "horizontal":
             cubes_tower_pos.append([desired_place[0],desired_place[1]+0.045,0.04])
@@ -182,48 +183,19 @@ class Tower():
 
         return(cubes_tower_pos)
 
-    def check_possible_tower_place(self, cubes_tower_pos, impossible_positions, safety_distance):
+    def check_possible_tower_place(self, cubes_tower_pos, impossible_positions):
         base_cubes = cubes_tower_pos[:2] # For tower of 3 cubes, gets the 2 base cubes of the tower
 
         placement_possible = True
         for cube_pos in base_cubes:
             cube_pos = cube_pos [:2] # Doesn't consider z coordinate for safety check
             for imp_pos in impossible_positions:
-                if math.dist(cube_pos,imp_pos) < safety_distance:
+                if math.dist(cube_pos,imp_pos) < self.safety_distance:
                     print("----------- Impossible tower placement --------------")
                     placement_possible = False
                     break
         return placement_possible
 
-
-
-    def pickplace(self):
-        self.plan_and_move.move_standard_pose()
-        
-        
-        pick_position = [rospy.get_param("cube_0_x")-0.01,
-                         rospy.get_param("cube_0_y")-0.05,
-                         0.05]
-        """
-        pick_position = [0.48, -0.32, 0.04]
-        """
-        print("pick_position",pick_position)
-        
-
-        pick_orientation = [0.9239002820650952,  
-                            -0.3826324133679813, 
-                            -0.000784053224384248,  
-                            0.00030050087016984296]
-
-        place_position = [rospy.get_param("cube_1_x")-0.01,
-                          rospy.get_param("cube_1_y")-0.05,
-                          0.12]
-
-        self.plan_and_move.setPickPose(*pick_position,*pick_orientation)
-        self.plan_and_move.setPlacePose(*place_position,*pick_orientation)
-        self.plan_and_move.execute_pick()
-        self.plan_and_move.execute_place()
-        self.plan_and_move.move_standard_pose()
 
     def collision_scene(self):
         # Creates collision scene for table and around the robot
