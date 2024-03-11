@@ -182,6 +182,7 @@ class Tower():
             cubes_tower_pos.append([desired_place[0],desired_place[1]+0.0275,0.1])
 
         return(cubes_tower_pos)
+        
 
     def check_possible_tower_place(self, cubes_tower_pos, impossible_positions):
         base_cubes = cubes_tower_pos[:2] # For tower of 3 cubes, gets the 2 base cubes of the tower

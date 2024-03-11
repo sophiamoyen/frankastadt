@@ -43,9 +43,9 @@ class Scan(smach.State):
 
   def execute(self, userdata):
     sleep(1)
-     
     rospy.loginfo('Executing state SCAN')
 
+    
     outcome = input("Enter outcome:")
     return outcome
 
