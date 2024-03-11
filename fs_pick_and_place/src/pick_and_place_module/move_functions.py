@@ -89,8 +89,7 @@ class PlanAndMove:
         # Moves to standard fixed joint position
         move_group = self.moveit_control
 
-        joints = [0.045843134892936364, -0.07335549670765736, 0.506543536769115, -1.7900334671385683, -0.452799927297675, 1.7877274498378573, 2.481286535510397]
-
+        joints = [0.1544528757042178, -0.14394418814928905, 0.015648645433615306, -1.8178459083692888, -0.15541488663028036, 1.7155173146032399, 1.9887875228837737]
 
         move_group.go_to_joint_state(*joints)
 
@@ -98,9 +97,14 @@ class PlanAndMove:
         # Moves to standard fixed joint position
         move_group = self.moveit_control
 
-        joints = [0.3459465081819693, -0.3813663578845286, -0.7214846584383697, -2.059031414611225, 0.012096634650623052, 1.8640857296751554, -0.5582194034401529]
+        joints = [0.004715505642791427, -0.18091970730337859, -0.22904179133901187, -1.8254551566355834, -0.003738068515543526, 1.7271905250814792, -0.07804289483358255]
 
         move_group.go_to_joint_state(*joints)
+
+    def get_joints(self):
+        move_group = self.moveit_control
+        joints = move_group.get_current_joint_states()
+        return joints
 
     
 
