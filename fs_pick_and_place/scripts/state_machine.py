@@ -26,12 +26,14 @@ class Init(smach.State):
 
   def execute(self, userdata):
     sleep(1)
-     
     rospy.loginfo('Executing state INIT')
+
+    # Create collision scene
+    self.tower.collision_scene()
+    # Goes to standard pose
     self.tower.plan_and_move.move_standard_pose()
 
-    outcome = input("Enter outcome:")
-    return outcome
+    return 'init_success'
 
 # Define state SCAN
 class Scan(smach.State):
@@ -41,9 +43,9 @@ class Scan(smach.State):
 
   def execute(self, userdata):
     sleep(1)
-     
     rospy.loginfo('Executing state SCAN')
 
+    
     outcome = input("Enter outcome:")
     return outcome
 
@@ -147,6 +149,20 @@ class PickCheck(smach.State):
     outcome = input("Enter outcome:")
     return outcome
 
+# Define state RETURN_CUBE
+class ReturnCube(smach.State):
+  def __init__(self, tower):
+    smach.State.__init__(self, outcomes=['cube_returned'])
+    self.tower = tower
+
+  def execute(self, userdata):
+    sleep(1)
+     
+    rospy.loginfo('Executing state RETURN_CUBE')
+
+    outcome = input("Enter outcome:")
+    return outcome
+
 # Define state PLACE_AND_CHECK
 class PlaceAndCheck(smach.State):
   def __init__(self, tower):
@@ -206,7 +222,8 @@ def main():
       # Add states to container
       smach.StateMachine.add('PRE_CHECK',PreCheck(tower), transitions={'pre_check_success':"PICK_CUBE",'scenario_changed':'scenario_changed'})
       smach.StateMachine.add('PICK_CUBE',PickCube(tower), transitions={'pick_failed':'PICK_CUBE','pick_success':'PICK_CHECK','scenario_changed':"scenario_changed"})
-      smach.StateMachine.add('PICK_CHECK',PickCheck(tower), transitions={'pick_check_success':'PLACE_AND_CHECK', 'scenario_changed':'scenario_changed'})
+      smach.StateMachine.add('PICK_CHECK',PickCheck(tower), transitions={'pick_check_success':'PLACE_AND_CHECK', 'scenario_changed':'RETURN_CUBE'})
+      smach.StateMachine.add('RETURN_CUBE',ReturnCube(tower), transitions={'cube_returned':'scenario_changed'})
       smach.StateMachine.add('PLACE_AND_CHECK',PlaceAndCheck(tower), transitions={'next_pick':'PICK_CUBE','tower_built':'tower_built', 'scenario_changed':'scenario_changed'})
     
     smach.StateMachine.add('PICK_AND_PLACE', sm_sub_build, transitions={'tower_built':"tower_built",'scenario_changed':'SCAN'})

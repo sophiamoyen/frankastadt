@@ -30,22 +30,14 @@ if __name__ == "__main__":
         cube_positions.append(pick_position)
         cube_indexes.append(i)
 
-    free_positions, impossible_positions = cla.find_free_space(cube_positions, 
-                                                               cube_size, 
-                                                               lim_x, 
-                                                               lim_y, 
-                                                               safety_distance)
+    free_positions, impossible_positions = cla.find_free_space(cube_positions)
 
     cla.plot_free_space(free_positions, 
                         impossible_positions, 
-                        cube_size, 
-                        cube_positions, 
-                        lim_x, 
-                        lim_y, 
-                        safety_distance,
+                        cube_positions,
                         cube_indexes)
 
-    closest_cube, closest_cube_index = cla.find_closest_cube_origin(cube_positions, desired_center, cube_indexes)
+    closest_cube, closest_cube_index = cla.find_closest_cube(cube_positions, cube_indexes)
     print("========== Removed cube_{} from occupied space".format(closest_cube_index))
 
 
@@ -54,41 +46,32 @@ if __name__ == "__main__":
     cubes_to_move_indexes.remove(closest_cube_index)
     cubes_to_move.remove(closest_cube)
 
-    free_positions, impossible_positions = cla.find_free_space(cubes_to_move, 
-                                                               cube_size, 
-                                                               lim_x, 
-                                                               lim_y, 
-                                                               safety_distance)
+    free_positions, impossible_positions = cla.find_free_space(cubes_to_move)
 
     cla.plot_free_space(free_positions, 
                         impossible_positions, 
-                        cube_size, 
                         cubes_to_move, 
-                        lim_x, 
-                        lim_y, 
-                        safety_distance,
                         cubes_to_move_indexes)
     
     print("================= Generating tower strucutre with 3 cubes with vertical orientation starting from position of cube_{}:".format(closest_cube_index), closest_cube)
     cubes_tower_pos = cla.creates_tower3_structure(closest_cube, orientation="vertical")
     print("================= Tower strucure generated:",cubes_tower_pos)
-    placement_possible = cla.check_possible_tower_place(cubes_tower_pos, impossible_positions, safety_distance)
+    placement_possible = cla.check_possible_tower_place(cubes_tower_pos, impossible_positions)
     print("================= Placement possible:",placement_possible)
     
     if placement_possible == False:
         sys.exit(1)
 
 
-    cla.plot_tower_place(free_positions, impossible_positions, cube_size, cubes_to_move, 
-                         lim_x, lim_y, safety_distance, cubes_to_move_indexes, cubes_tower_pos)
+    cla.plot_tower_place(free_positions, impossible_positions, cubes_to_move, cubes_to_move_indexes, cubes_tower_pos)
 
     # Getting Pick  SIMULATION
     pick_positions = [[*closest_cube,rospy.get_param("cube_0_z")]]
-    tower_closest_cube, closest_cube_index = cla.find_closest_cube_origin(cubes_to_move, closest_cube, cubes_to_move_indexes)
+    tower_closest_cube, closest_cube_index = cla.find_closest_cube(cubes_to_move, cubes_to_move_indexes, closest_cube)
     pick_positions.append([*tower_closest_cube,rospy.get_param("cube_0_z")])
     cubes_to_move_indexes.remove(closest_cube_index)
     cubes_to_move.remove(tower_closest_cube)
-    tower_closest_cube, closest_cube_index = cla.find_closest_cube_origin(cubes_to_move, closest_cube, cubes_to_move_indexes)
+    tower_closest_cube, closest_cube_index = cla.find_closest_cube(cubes_to_move, cubes_to_move_indexes, closest_cube)
     pick_positions.append([*tower_closest_cube,rospy.get_param("cube_0_z")])
 
     print("=========== Place positions:",cubes_tower_pos)
