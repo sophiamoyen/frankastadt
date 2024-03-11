@@ -11,8 +11,8 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-SIMULATION = True
-STATE = "CHECK" #INIT or CHECK
+SIMULATION = False
+STATE = "INIT" #INIT or CHECK
 
 #Hyperparameter
 if (SIMULATION):
@@ -98,6 +98,7 @@ class CubeDetector:
                 # canny for edge detection
                 detected_edges = cv2.Canny(thresholded, 50, 150)
                 #self.show_image(detected_edges, "Detected Edges", 'gray')
+                
 
                 # extracting contours (edges that belong together)
                 contours, _ = cv2.findContours(detected_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -175,11 +176,12 @@ class CubeDetector:
             text = f"Num Edges: {num_edges}, Area: {area}, Convex: {convexity}"
             M = cv2.moments(edges)
 
-            if convexity:
+            if convexity and area > 1500:
             #if True:
             #if (num_edges >= MIN_EDGES) and (num_edges <= MAX_EDGES) and (area >= MIN_AREA) and (area <= MAX_AREA):
             #if len(edges >=4) and len(edges <=7) and abs(cv2.contourArea(contour)) > 50 and abs(cv2.contourArea(contour)) < 2500:
                 cv2.drawContours(self.debug_image, [edges], -1, (255,0,0),2)
+                
 
                 if M["m00"] != 0:
                     
@@ -219,10 +221,10 @@ class CubeDetector:
 
                     cv2.drawContours(self.debug_image,[box],0,(255,0,255),2)
 
-                    cube_text = f"Cube {cube_count} : (" + str(round(width, 2)) + ", " + str(round(height, 2)) + ") " + str(height/width)
+                    cube_text = f"Cube {cube_count} : (" + str(round(width, 2)) + ", " + str(round(height, 2)) + ") " + str(angle)
 
-                    if (0.8 > ratio or ratio > 1.2):
-                        cube_text = f"2 Cubes detected {cube_count} : (" + str(round(width, 2)) + ", " + str(round(height, 2)) + ") " + str(height/width)
+                    if (0.7 > ratio or ratio > 1.3):
+                        cube_text = f"2 Cubes detected {cube_count} : (" + str(round(width, 2)) + ", " + str(round(height, 2)) + ") " + str(angle)
 
                         # todo: split the cubes
                         # maybe mask everything to validate cubes
@@ -234,30 +236,37 @@ class CubeDetector:
                     #cube_text = f"Cube {cube_count} : (" + str(round(transformed_point.point.x , 2)) + ", " + str(round(transformed_point.point.y, 2)) + ")  orientation: " + str(angle)
                     cv2.putText(self.debug_image, cube_text, (cx-150, cy -10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,0), 2)
 
-                    cube_count += 1
+                    
 
                 detected_cubes.append(Cube(cube_count, transformed_point.point.x, transformed_point.point.y, transformed_point.point.z, angle))
-            #else:
-            #    if M["m00"] != 0:
-            #        # Calculate centroid (position)
-            #        cx = int(M["m10"] / M["m00"])
-            #        cy = int(M["m01"] / M["m00"])
-            #        rect = cv2.minAreaRect(contour)
-            #        box = cv2.boxPoints(rect)
-            #        box = np.int0(box)
-            #        
-            #        width = int(rect[1][0])
-            #        height = int(rect[1][1])
-            #        angle = int(rect[2])
+                cube_count += 1
+            else:
+                if M["m00"] != 0 and area > 1500:
+                    # Calculate centroid (position)
+                    cx = int(M["m10"] / M["m00"])
+                    cy = int(M["m01"] / M["m00"])
+                    rect = cv2.minAreaRect(contour)
+                    box = cv2.boxPoints(rect)
+                    box = np.int0(box)
+                    
+                    width = int(rect[1][0])
+                    height = int(rect[1][1])
+                    angle = int(rect[2])
+
+                    x, y, w, h = cv2.boundingRect(edges)
+                    non_convex_area = self.cv_image[y-5:y+h+5, x-5:x+w+5]
+                    non_convex_depth = self.depth_image[y-5:y+h+5, x-5:x+w+5]
+
+                    self.check_for_cubes(non_convex_area, non_convex_depth)
 #
             #        if width < height:
             #           angle = 90 - angle
             #        else:
             #           angle = -angle
 #
-            #        cv2.drawContours(self.debug_image,[box],0,(255,255,0),2)
-            #        cv2.circle(self.debug_image, (cx, cy), 5, (0, 255, 0), -1)
-            #        cv2.putText(self.debug_image, text, (cx- 250, cy -10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 2)
+                    cv2.drawContours(self.debug_image,[box],0,(255,255,0),2)
+                    cv2.circle(self.debug_image, (cx, cy), 5, (0, 255, 0), -1)
+                    cv2.putText(self.debug_image, text, (cx- 250, cy -10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 2)
                     
         print("detected Cubes: ", len(detected_cubes))
         return detected_cubes
@@ -322,8 +331,66 @@ class CubeDetector:
         return sorted(missing_ids)
 
 
-    def check_cube(self, cx, cy, box):
-        pass
+    def check_for_cubes(self, img, depth):
+        # Convert to grayscale
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        #self.show_image(gray, "Gray", 'gray')
+        #self.show_image(depth, "depth", "gray")
+        
+        #closest_point = np.unravel_index(np.argmin(depth), depth)
+        #print("Top Area Coordinates:", closest_point)
+
+
+
+        #hist, bins = np.histogram(gray, bins=256, range=[0,256])
+        #plt.figure(figsize=(10,4))
+        #plt.plot(hist, color="gray")
+        #plt.fill_between(range(256), hist, color="gray", alpha=0.3)
+        #plt.title("Grayscale histo")
+        #plt.xlabel("Pixel Intensity")
+        #plt.ylabel("Frequency")
+        #plt.xlim([0, 255])
+        #plt.show()
+
+        # Apply Gaussian blur
+        blurred = cv2.GaussianBlur(gray, (3,3), 0)
+        #self.show_image(blurred, "Blur", 'gray')
+
+        #thresholded = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 299, 15)
+        _, thresholded = cv2.threshold(gray, 20 , 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        #self.show_image(thresholded, "thresholded", 'gray')
+
+        # canny for edge detection
+        detected_edges = cv2.Canny(blurred, 0, 150)
+        self.show_image(detected_edges, "Detected Edges", 'gray')
+
+        contours, _ = cv2.findContours(detected_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        for contour in contours:
+            epsilon = 0.01 * cv2.arcLength(contour, True)
+            edges = cv2.approxPolyDP(contour, epsilon, True)
+        # Draw contours on the original image
+
+        contour_image = img.copy()  # Create a copy of the original image
+        cv2.drawContours(contour_image, contours, -1, (0, 255, 255), 2)  # Draw contours with green color and thickness 2
+
+        # Show the image with contours
+        self.show_image(contour_image, "Contours")
+        
+
+        # thresholding to isolate non-black objects (table=black)
+        #_, thresholded = cv2.threshold(blurred, BLACK_TABEL_THRESHOLD, 255, cv2.THRESH_BINARY)
+        #self.show_image(thresholded, "thresholded", 'gray')
+
+        # other theshold trials
+        #thresholded = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 299, 15)
+        #_, thresholded = cv2.threshold(gray, 0 , 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        
+        # makes the outlines thinner
+        #kernel = np.ones((5, 5), np.uint8)
+        #dilate = cv2.dilate(thresholded, kernel, iterations=1)
+        #self.show_image(dilate, "dilate", 'gray')
+
+
 
     def calculate_average_depth_from_corners(self, corner_size=10):
         h, w = self.depth_image.shape

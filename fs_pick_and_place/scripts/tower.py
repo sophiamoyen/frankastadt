@@ -171,10 +171,10 @@ class Tower():
 
 
         if orientation == "vertical":
-            #cubes_tower_pos.append([desired_place[0]+0.045,desired_place[1],0.04]) # Real world
-            cubes_tower_pos.append([desired_place[0]+0.045,desired_place[1],rospy.get_param("cube_0_z")])
-            #cubes_tower_pos.append([desired_place[0]+0.0275,desired_place[1],0.1]) # Real world
-            cubes_tower_pos.append([desired_place[0]+0.0275,desired_place[1],rospy.get_param("cube_0_z")+0.1]) 
+            cubes_tower_pos.append([desired_place[0]+0.055,desired_place[1],0.04]) # Real world
+            #cubes_tower_pos.append([desired_place[0]+0.045,desired_place[1],rospy.get_param("cube_0_z")]) # Simulation
+            cubes_tower_pos.append([desired_place[0]+0.0275,desired_place[1],0.1]) # Real world
+            #cubes_tower_pos.append([desired_place[0]+0.0275,desired_place[1],rospy.get_param("cube_0_z")+0.1]) # Simulation
 
         if orientation == "horizontal":
             cubes_tower_pos.append([desired_place[0],desired_place[1]+0.045,0.04])
@@ -337,7 +337,6 @@ class Tower():
             i += 1
 
         self.plan_and_move.move_standard_pose()
-
 
 
 
