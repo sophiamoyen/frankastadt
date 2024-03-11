@@ -21,7 +21,7 @@ class PCPerception():
     def __init__(self):
 
         # Set the work environment
-        self.work_environment = "real"
+        self.work_environment = "gazebo"
         self.using_icp = True
         self.single_perception = False
         self.first_perception_done = False
@@ -32,8 +32,8 @@ class PCPerception():
         self.number_of_cubes = 30
 
         # Create a cube for ground truth
-        #self.cube_gt = create_cube_gt(self.edge_len)
-        self.cube_gt = create_pyramid_gt(3, 5, 0.045)
+        self.cube_gt = create_cube_gt(self.edge_len)
+        #self.cube_gt = create_pyramid_gt(3, 5, 0.045)
         #self.cube_gt.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
 
         # Set the parameter for simulation or real world
