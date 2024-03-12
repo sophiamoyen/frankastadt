@@ -230,6 +230,7 @@ class CubeDetector:
                     top_contour = np.array(top_edges_pixel_coords).reshape((-1, 1, 2)).astype(np.int32)
                     cv2.drawContours(self.debug_image, [top_contour], -1, (0, 255, 0), 2)
 
+                    dist_to_image_center = self.dist_to_image_center(cx, cy)
 
                     rect = cv2.minAreaRect(contour)
                     box = cv2.boxPoints(rect)
@@ -249,11 +250,9 @@ class CubeDetector:
 
                     cv2.drawContours(self.debug_image,[box],0,(255,0,255),2)
 
-                    cube_text = f"Cube {cube_count} : (" + str(round(width, 2)) + ", " + str(round(height, 2)) + ") " + str(round(height/width, 3)) + " A: " + str(round(area,2))
+                    cube_text = f"Cube {cube_count} : (" + str(round(width, 2)) + ", " + str(round(height, 2)) + ") " + str(round(height/width, 3)) + " A: " + str(round(area,2)) + " d: " + str(round(dist_to_image_center))
 
                     if (area > 6000):
-                        cube_text = f"2 Cubes detected {cube_count} : (" + str(round(width, 2)) + ", " + str(round(height, 2)) + ") " + str(round(height/width, 3)) + " A: " + str(round(area,2))
-
                         # todo: split the cubes
                         # maybe mask everything to validate cubes
                         angle_rad = np.radians(angle)
@@ -273,15 +272,32 @@ class CubeDetector:
                         cv2.circle(self.debug_image, tuple(new_centroid_left.astype(int)), 5, (0, 0, 255), -1)
                         cv2.circle(self.debug_image, tuple(new_centroid_right.astype(int)), 5, (255, 255, 0), -1)
 
-                        
+                        depth_left = self.depth_image[new_centroid_left[1].astype(int), new_centroid_left[0].astype(int)]
+                        depth_right = self.depth_image[new_centroid_right[1].astype(int), new_centroid_right[0].astype(int)]
 
-                    #cube_text = f"Cube {cube_count} : (" + str(round(transformed_point.point.x , 2)) + ", " + str(round(transformed_point.point.y, 2)) + ")  orientation: " + str(angle)
-                    cv2.putText(self.debug_image, cube_text, (cx-150, cy -10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,0), 2)
+                        # Convert the pixel to camera frame using depth (if your function requires it)
+                        camera_frame_left_point = self.pixel_to_camera_frame(new_centroid_left[0].astype(int), new_centroid_left[1].astype(int), depth_left)
+                        camera_frame_right_point = self.pixel_to_camera_frame(new_centroid_right[0].astype(int), new_centroid_right[1].astype(int), depth_right)
 
-                    
+                        # Transform the point from the camera frame to the world frame
+                        transformed_point_left = self.transform_point(camera_frame_left_point)
+                        transformed_point_right = self.transform_point(camera_frame_right_point)
 
-                detected_cubes.append(Cube(cube_count, transformed_point.point.x, transformed_point.point.y, transformed_point.point.z, angle))
-                cube_count += 1
+                        cube_text_left = f"2 Cubes detected {cube_count} : (" + str(round(transformed_point_left.point.x, 2)) + ", " + str(round(transformed_point_left.point.y, 2)) + ")"
+                        detected_cubes.append(Cube(cube_count, transformed_point_left.point.x, transformed_point_left.point.y, transformed_point_left.point.z, angle))
+                        cube_count += 1
+                        cube_text_right = f"2 Cubes detected {cube_count} : (" + str(round(transformed_point_right.point.x, 2)) + ", " + str(round(transformed_point_right.point.y, 2)) + ")"
+                        detected_cubes.append(Cube(cube_count, transformed_point_right.point.x, transformed_point_right.point.y, transformed_point_right.point.z, angle))
+                        cube_count += 1
+
+                        cv2.putText(self.debug_image, cube_text_left, (new_centroid_left[0].astype(int)-150, new_centroid_left[1].astype(int)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,0), 2)
+                        cv2.putText(self.debug_image, cube_text_right, (new_centroid_right[0].astype(int)-150, new_centroid_right[1].astype(int)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,0), 2)
+                    else:
+                        #cube_text = f"Cube {cube_count} : (" + str(round(transformed_point.point.x , 2)) + ", " + str(round(transformed_point.point.y, 2)) + ")  orientation: " + str(angle)
+                        cv2.putText(self.debug_image, cube_text, (cx-350, cy -10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,0), 2)
+                        detected_cubes.append(Cube(cube_count, transformed_point.point.x, transformed_point.point.y, transformed_point.point.z, angle))
+                        cube_count += 1
+
             else:
                 if M["m00"] != 0 and area > 1500:
                     # Calculate centroid (position)
@@ -335,6 +351,11 @@ class CubeDetector:
     
         return np.array(adjusted_edges)
     
+    def dist_to_image_center(self, x, y):
+        image_center = (self.cv_image.shape[1]/2, self.cv_image.shape[0]/2)
+        cube_pos = (x, y)
+
+        return np.sqrt((image_center[0] - cube_pos[0])**2 + (image_center[1] -  cube_pos[1])**2)
 
     def match_detected_with_previous_cubes(self, detected_cubes):
         cubes_to_publish = []
