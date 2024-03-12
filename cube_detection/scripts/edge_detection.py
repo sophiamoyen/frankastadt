@@ -11,6 +11,9 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
+import warnings
+warnings.filterwarnings("ignore")
+
 SIMULATION = False
 STATE = "INIT" #INIT or CHECK
 
@@ -61,6 +64,7 @@ class CubeDetector:
 
         self.debug_image = None
         self.debug_image_publisher = rospy.Publisher('/cube_detection/debug_image', Image, queue_size=10)
+        self.contour_image_publisher = rospy.Publisher('/cube_detection/contour_image', Image, queue_size=10)
 
         if SIMULATION:
             self.target_frame = "world"
@@ -180,14 +184,14 @@ class CubeDetector:
             #if True:
             #if (num_edges >= MIN_EDGES) and (num_edges <= MAX_EDGES) and (area >= MIN_AREA) and (area <= MAX_AREA):
             #if len(edges >=4) and len(edges <=7) and abs(cv2.contourArea(contour)) > 50 and abs(cv2.contourArea(contour)) < 2500:
-                cv2.drawContours(self.debug_image, [edges], -1, (255,0,0),2)
+                #cv2.drawContours(self.debug_image, [edges], -1, (255,0,0),2)
                 
-
                 if M["m00"] != 0:
                     
                     # Calculate centroid (position)
                     cx = int(M["m10"] / M["m00"])
                     cy = int(M["m01"] / M["m00"])
+                    center = np.array([cx, cy])
                     cv2.circle(self.debug_image, (cx, cy), 5, (255, 0, 0), -1)
                     #cube_text = f"Cube {count} - " + text
                     #cube_text = f"Cube {count} - " + text
@@ -201,8 +205,32 @@ class CubeDetector:
                     # transform points to world coordinate system
                     transformed_point = self.transform_point(camera_frame)
                     #print(cube_count, ": ", transformed_point)
+                    corrected_edges = self.adjust_edge_points(center, edges)
+                    transformed_edges = []
+                    for edge in corrected_edges:
+                        # Assuming `edge` is a point in the contour returned by cv2.approxPolyDP
+                        x, y = edge.ravel()  # Convert the point to x, y coordinates
+                        #cv2.circle(self.debug_image, (x, y), radius=2, color=(0, 255, 0), thickness=-1)
+                        # Assuming you have a method to get depth for each edge point
+                        depth = self.depth_image[y, x]
 
-                    
+                        # Convert the pixel to camera frame using depth (if your function requires it)
+                        camera_frame_point = self.pixel_to_camera_frame(x, y, depth)
+
+                        # Transform the point from the camera frame to the world frame
+                        transformed_point = self.transform_point(camera_frame_point)
+                        coord_text = f"({transformed_point.point.x:.2f}, {transformed_point.point.y:.2f}, {transformed_point.point.z:.2f}"
+                        #cv2.putText(self.debug_image, coord_text, (x + 5, y), cv2.FONT_HERSHEY_SIMPLEX, 0.3,(255, 0, 255), 1)
+                        # Now `transformed_point` is the point in world coordinates
+                        # You might want to store or process these points
+                        transformed_edges.append(((x, y), transformed_point))
+
+                    transformed_edges.sort(key=lambda pt: pt[1].point.z, reverse=True)
+                    top_edges_pixel_coords = [pt[0] for pt in transformed_edges[:4]]
+                    top_contour = np.array(top_edges_pixel_coords).reshape((-1, 1, 2)).astype(np.int32)
+                    cv2.drawContours(self.debug_image, [top_contour], -1, (0, 255, 0), 2)
+
+
                     rect = cv2.minAreaRect(contour)
                     box = cv2.boxPoints(rect)
                     box = np.int0(box)
@@ -221,17 +249,31 @@ class CubeDetector:
 
                     cv2.drawContours(self.debug_image,[box],0,(255,0,255),2)
 
-                    cube_text = f"Cube {cube_count} : (" + str(round(width, 2)) + ", " + str(round(height, 2)) + ") " + str(angle)
+                    cube_text = f"Cube {cube_count} : (" + str(round(width, 2)) + ", " + str(round(height, 2)) + ") " + str(round(height/width, 3)) + " A: " + str(round(area,2))
 
-                    if (0.7 > ratio or ratio > 1.3):
-                        cube_text = f"2 Cubes detected {cube_count} : (" + str(round(width, 2)) + ", " + str(round(height, 2)) + ") " + str(angle)
+                    if (area > 6000):
+                        cube_text = f"2 Cubes detected {cube_count} : (" + str(round(width, 2)) + ", " + str(round(height, 2)) + ") " + str(round(height/width, 3)) + " A: " + str(round(area,2))
 
                         # todo: split the cubes
                         # maybe mask everything to validate cubes
+                        angle_rad = np.radians(angle)
+                        # Calculate direction vector components based on the angle
+                        direction_vector = np.array([np.cos(-angle_rad), np.sin(-angle_rad)])
+
+                        move_distance = height / 4
                         if (width > height):
-                            pass
-                        else:
-                            pass
+                            move_distance = width / 4
+                        
+                        
+                        # Calculate new centroid positions
+                        new_centroid_left = np.array([cx, cy]) - direction_vector * move_distance
+                        new_centroid_right = np.array([cx, cy]) + direction_vector * move_distance
+                        
+                        # For visualization, draw the new centroids on the debug image
+                        cv2.circle(self.debug_image, tuple(new_centroid_left.astype(int)), 5, (0, 0, 255), -1)
+                        cv2.circle(self.debug_image, tuple(new_centroid_right.astype(int)), 5, (255, 255, 0), -1)
+
+                        
 
                     #cube_text = f"Cube {cube_count} : (" + str(round(transformed_point.point.x , 2)) + ", " + str(round(transformed_point.point.y, 2)) + ")  orientation: " + str(angle)
                     cv2.putText(self.debug_image, cube_text, (cx-150, cy -10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,0), 2)
@@ -253,11 +295,19 @@ class CubeDetector:
                     height = int(rect[1][1])
                     angle = int(rect[2])
 
-                    x, y, w, h = cv2.boundingRect(edges)
-                    non_convex_area = self.cv_image[y-5:y+h+5, x-5:x+w+5]
-                    non_convex_depth = self.depth_image[y-5:y+h+5, x-5:x+w+5]
+                    mask = np.zeros(self.cv_image.shape[:2], dtype=np.uint8)
+                    cv2.drawContours(mask, [contour], -1, color=255, thickness=cv2.FILLED)
+                    #self.show_image(mask, "Mask", "gray")
 
-                    self.check_for_cubes(non_convex_area, non_convex_depth)
+                    masked_image = cv2.bitwise_and(self.cv_image, self.cv_image, mask=mask)
+                    masked_depth = cv2.bitwise_and(self.depth_image, self.depth_image, mask=mask)
+                    #self.show_image(masked_image, "Masked Image")
+
+                    x, y, w, h = cv2.boundingRect(edges)
+                    non_convex_area = masked_image[y-5:y+h+5, x-5:x+w+5]
+                    non_convex_depth = masked_depth[y-5:y+h+5, x-5:x+w+5]
+
+                    self.check_for_cubes(masked_image, masked_depth)
 #
             #        if width < height:
             #           angle = 90 - angle
@@ -270,6 +320,21 @@ class CubeDetector:
                     
         print("detected Cubes: ", len(detected_cubes))
         return detected_cubes
+    
+    def adjust_edge_points(self, center, edges, correction_distance=11):
+        adjusted_edges = []
+    
+        for edge in edges:
+            edge_point = edge[0]  # Get the point from the edge contour format
+            vector_to_center = center - edge_point
+            # Normalize the vector to have a length of 1
+            norm_vector = vector_to_center / np.linalg.norm(vector_to_center)
+            # Move the edge point towards the center by the correction distance
+            adjusted_point = edge_point + norm_vector * correction_distance
+            adjusted_edges.append([adjusted_point.astype(np.int32)])
+    
+        return np.array(adjusted_edges)
+    
 
     def match_detected_with_previous_cubes(self, detected_cubes):
         cubes_to_publish = []
@@ -332,49 +397,84 @@ class CubeDetector:
 
 
     def check_for_cubes(self, img, depth):
+        # Convert to float and scale down
+        img_float = img.astype(np.float32) / 255.0
+        # Apply gamma correction
+        gamma_corrected = np.power(img_float, 0.5)  # Gamma < 1 reduces overexposure
+        # Scale back to uint8
+        corrected_img = np.clip(gamma_corrected * 255, 0, 255).astype(np.uint8)
         # Convert to grayscale
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(corrected_img, cv2.COLOR_BGR2GRAY)
         #self.show_image(gray, "Gray", 'gray')
         #self.show_image(depth, "depth", "gray")
         
         #closest_point = np.unravel_index(np.argmin(depth), depth)
         #print("Top Area Coordinates:", closest_point)
 
-
-
-        #hist, bins = np.histogram(gray, bins=256, range=[0,256])
-        #plt.figure(figsize=(10,4))
-        #plt.plot(hist, color="gray")
-        #plt.fill_between(range(256), hist, color="gray", alpha=0.3)
-        #plt.title("Grayscale histo")
-        #plt.xlabel("Pixel Intensity")
-        #plt.ylabel("Frequency")
-        #plt.xlim([0, 255])
-        #plt.show()
+        min_val, _, min_loc, _ = cv2.minMaxLoc(depth)
+        depth_tolerance = 0.008
+        top_surface_threshold = min_val + depth_tolerance
+        _, top_surface_mask = cv2.threshold(depth, top_surface_threshold, 255, cv2.THRESH_BINARY_INV)
+        #self.show_image(top_surface_mask, "Top surface Mask", "gray")
+        # does not work for edge detection?
+        # find 2 perpendicular lines. middle is middle of cube
 
         # Apply Gaussian blur
         blurred = cv2.GaussianBlur(gray, (3,3), 0)
         #self.show_image(blurred, "Blur", 'gray')
 
         #thresholded = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 299, 15)
-        _, thresholded = cv2.threshold(gray, 20 , 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        adaptive_thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, 
+                                        cv2.THRESH_BINARY, 11, 2)
+        #_, thresholded = cv2.threshold(gray, 20 , 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
         #self.show_image(thresholded, "thresholded", 'gray')
 
         # canny for edge detection
-        detected_edges = cv2.Canny(blurred, 0, 150)
-        self.show_image(detected_edges, "Detected Edges", 'gray')
+        detected_edges = cv2.Canny(adaptive_thresh, 0, 150)
+        #self.show_image(detected_edges, "Detected Edges", 'gray')
 
-        contours, _ = cv2.findContours(detected_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        edges_in_top_surface = cv2.bitwise_and(detected_edges, detected_edges, mask=top_surface_mask.astype(np.uint8))
+        #self.show_image(edges_in_top_surface, "Top Surface Edges", 'gray')
+
+        contour_image = img.copy()
+
+        contours, hierarchy = cv2.findContours(detected_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        hierarchy = hierarchy[0]  # Get the actual hierarchy array
+        for i, contour_info in enumerate(hierarchy):
+            next_, previous, first_child, parent = contour_info
+            if parent == -1:  # If the contour has no parent, it's a top-level contour
+                # Process top-level contour, which might be an individual cube or a group
+                contour = contours[i]
+                # Example: Draw top-level contours
+                cv2.drawContours(contour_image, [contour], -1, (255, 0, 0), 3)
+        
         for contour in contours:
             epsilon = 0.01 * cv2.arcLength(contour, True)
             edges = cv2.approxPolyDP(contour, epsilon, True)
-        # Draw contours on the original image
+            area = abs(cv2.contourArea(contour))
+            num_edges = len(edges)
+            convexity = cv2.isContourConvex(edges)
+            text = f"Num Edges: {num_edges}, Area: {area}, Convex: {convexity}"
+            print(text)
+            M = cv2.moments(edges)
 
-        contour_image = img.copy()  # Create a copy of the original image
-        cv2.drawContours(contour_image, contours, -1, (0, 255, 255), 2)  # Draw contours with green color and thickness 2
+            if M["m00"] != 0:
+                cx = int(M["m10"] / M["m00"])
+                cy = int(M["m01"] / M["m00"])
+            else:
+                cx, cy = 0, 0
+            #if area > 1000:
+                #cv2.putText(contour_image, text, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX, 
+                        #0.5, (0, 255, 0), 2)
+                #cv2.drawContours(contour_image, contour, -1, (0, 255, 255), 2)  # Draw contours with green color and thickness 2
+
+        # Convert OpenCV image to ROS message
+        contour_image_msg = self.bridge.cv2_to_imgmsg(contour_image)
+            # Publish
+        self.contour_image_publisher.publish(contour_image_msg)
 
         # Show the image with contours
-        self.show_image(contour_image, "Contours")
+        #self.show_image(contour_image, "Contours")
         
 
         # thresholding to isolate non-black objects (table=black)
