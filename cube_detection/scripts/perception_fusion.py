@@ -4,13 +4,16 @@ from nav_msgs.msg import Odometry
 
 import numpy as np
 
+DISTANCE_THRESHOLD = 0.05
+
 class Cube:
-    def __init__(self, id, x, y, z, orientation):
+    def __init__(self, id, x, y, z, orientation, confidence):
         self.id = id
         self.x = x
         self.y = y
         self.z = z
         self.orientation = orientation
+        self.confidence = confidence
 
 
 class CubeFusion:
@@ -19,8 +22,9 @@ class CubeFusion:
         self.cubes_ed = []
 
         self.matched_cubes = []
+        self.prev_cubes = []
 
-        for cube_num in range(6):
+        for cube_num in range(9):
             self.cube_pc_subscriber = rospy.Subscriber("cube_{}_odom_pc".format(cube_num), Odometry, self.callbackPC)
             self.cube_ed_subscriber = rospy.Subscriber("cube_{}_odom_ed".format(cube_num), Odometry, self.callbackED)
 
@@ -54,26 +58,64 @@ class CubeFusion:
             rospy.loginfo("Performing cube matching...")
 
             for cube_pc in self.cubes_pc:
-                self.match_closest_cube(cube_pc)
+                min_distance, closest_cube_ed = self.match_closest_cube(cube_pc)
+                if (min_distance < DISTANCE_THRESHOLD):
+                    self.matched_cubes(Cube(cube_pc.id, cube_pc.x, cube_pc.y, cube_pc.z, closest_cube_ed.orientation, 1))
+                else:
+                    # find logic for cubes that the rgbd edge detection didnt find
+                    self.matched_cubes(Cube(cube_pc.id, cube_pc.x, cube_pc.y, cube_pc.z, closest_cube_ed.orientation, 0))
+
+            if (self.prev_cubes):
+                self.match_with_prev()
+                # copy to prev
+                # delete matched
+            else:
+                self.publish_cubes()
 
             rospy.loginfo("Done with matching")
             self.cubes_pc = []
             self.cubes_ed = []
 
     def match_closest_cube(self, cube_pc):
-        distances = []
+        min_distance = float('inf')
+        closest_cube_ed = None
+
         for cube_ed in self.cubes_ed:
-            distances.append((cube_ed.id, self.calculate_distance(cube_pc, cube_ed)))
+            distance = self.calculate_distance(cube_pc, cube_ed)
+            if distance < min_distance:
+                min_distance = distance
+                closest_cube_ed = cube_ed
 
-        print(distances)
+        return min_distance, closest_cube_ed
 
-        #coninue here
-        #closest = np.argmin(distances[])
+    def match_with_prev(self):
+        matched_cubes = []
+        matched_cubes_ids = []
+        unmatched_cubes = []
+
+        prev_number_of_cubes = len(self.prev_cubes)
 
     def calculate_distance(self, cube1, cube2):
         # Euclidean distance between two cubes
         return ((cube1.x - cube2.x) ** 2 + (cube1.y - cube2.y) ** 2)
 
+    def publish_cubes(self):
+        for cube in self.matched_cubes:
+            cube_odom = Odometry()
+            cube_odom.header.frame_id = "world"
+            cube_odom.child_frame_id = "cube_{}".format(cube.id)
+            cube_odom.pose.pose.position.x = cube.x
+            cube_odom.pose.pose.position.y = cube.y
+            cube_odom.pose.pose.position.z = cube.z
+            cube_odom.pose.pose.orientation.x = 0
+            cube_odom.pose.pose.orientation.y = 0
+            cube_odom.pose.pose.orientation.z = cube.rotation
+            cube_odom.pose.pose.orientation.w = 0
+            #cube_odom.pose.pose.orientation.w = cube.confidence
+
+            print("Publishing Cube {}: ({}, {}, {}) - {}".format(cube.id, round(cube.x, 3), round(cube.y, 3), round(cube.z, 3), round(cube.rotation, 3)))
+            cube_publisher = rospy.Publisher("cube_{}_odom".format(cube.id), Odometry, queue_size=10)
+            cube_publisher.publish(cube_odom)
 
     def publisher(self):
         try:
