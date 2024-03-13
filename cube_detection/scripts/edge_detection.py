@@ -11,9 +11,6 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-import warnings
-warnings.filterwarnings("ignore")
-
 SIMULATION = False
 STATE = "INIT" #INIT or CHECK
 
@@ -30,7 +27,7 @@ else:
     # helps to eliminate noise on the table
     BLUR_SIZE = (27, 27)
     # to filter out the table depends on light conditions
-    BLACK_TABEL_THRESHOLD = 150
+    BLACK_TABEL_THRESHOLD = 140
     # threshold to decide weather detected cube is same as before
     MATCH_DISTANCE_THRESHOLD = 0.01
     # for deciding if contour is cube - outdated probably
@@ -226,7 +223,7 @@ class CubeDetector:
                         transformed_edges.append(((x, y), transformed_point))
 
                     transformed_edges.sort(key=lambda pt: pt[1].point.z, reverse=True)
-                    top_edges_pixel_coords = [pt[0] for pt in transformed_edges[:4]]
+                    top_edges_pixel_coords = [pt[0] for pt in transformed_edges[:6]]
                     top_contour = np.array(top_edges_pixel_coords).reshape((-1, 1, 2)).astype(np.int32)
                     cv2.drawContours(self.debug_image, [top_contour], -1, (0, 255, 0), 2)
 
@@ -581,7 +578,7 @@ class CubeDetector:
                 cube_odom.pose.pose.orientation.w = 0
 
                 print("Publishing Cube {}: ({}, {}, {}) - {}".format(cube.id, round(cube.x, 3), round(cube.y, 3), round(cube.z, 3), round(cube.rotation, 3)))
-                cube_publisher = rospy.Publisher("cube_{}_odom".format(cube.id), Odometry, queue_size=10)
+                cube_publisher = rospy.Publisher("cube_{}_odom_ed".format(cube.id), Odometry, queue_size=10)
                 cube_publisher.publish(cube_odom)
 
     # callbacks

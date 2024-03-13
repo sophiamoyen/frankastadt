@@ -69,7 +69,7 @@ class PCPerception():
         # Create a publisher for the odometry of the cubes
         self.cube_publisher = np.array([None]*self.number_of_cubes)
         for i in range(self.number_of_cubes):
-            self.cube_publisher[i] = rospy.Publisher('cube_{}_odom'.format(i), Odometry, queue_size=10)
+            self.cube_publisher[i] = rospy.Publisher('cube_{}_odom_pc'.format(i), Odometry, queue_size=10)
     
     #def perform_icp(self, source, target):
         
