@@ -21,6 +21,7 @@ class Scan(smach.State):
     sleep(1)
      
     rospy.loginfo('Executing state SCAN')
+    self.tower.collision_scene()
     self.tower.plan_and_move.move_standard_pose()
     return 'scan_success'
  
@@ -33,7 +34,7 @@ class PickPlace(smach.State):
   def execute(self, userdata):
     sleep(1)
 
-    for i in range(1,3):
+    for i in range(1,6):
         self.tower.stack(userdata.cubes_tower_pos[i],userdata.pick_positions[i])
 
 
@@ -54,12 +55,8 @@ class PlanTower(smach.State):
  
     rospy.loginfo('Executing state PLAN TOWER')
 
-    cube_size = 0.045  # cm
-    lim_y = [-0.50,0.50]
-    lim_x = [0.10,0.80]
-    safety_distance = (cube_size*math.sqrt(2))
-    desired_center = [0.50,0]
     n_detected_cubes = 6
+    desired_center = (0.5,0)
 
     
     cube_positions = []
@@ -70,70 +67,72 @@ class PlanTower(smach.State):
         cube_positions.append(pick_position)
         cube_indexes.append(i)
 
-    free_positions, impossible_positions = self.tower.find_free_space(cube_positions, 
-                                                               cube_size, 
-                                                               lim_x, 
-                                                               lim_y, 
-                                                               safety_distance)
+    free_positions, impossible_positions = self.tower.find_free_space(cube_positions)
 
     self.tower.plot_free_space(free_positions, 
                         impossible_positions, 
-                        cube_size, 
-                        cube_positions, 
-                        lim_x, 
-                        lim_y, 
-                        safety_distance,
+                        cube_positions,
                         cube_indexes)
-
-    closest_cube, closest_cube_index = self.tower.find_closest_cube(cube_positions, desired_center, cube_indexes)
-    print("========== Removed cube_{} from occupied space".format(closest_cube_index))
 
 
     cubes_to_move = cube_positions.copy()
     cubes_to_move_indexes = cube_indexes.copy()
-    cubes_to_move_indexes.remove(closest_cube_index)
-    cubes_to_move.remove(closest_cube)
 
-    free_positions, impossible_positions = self.tower.find_free_space(cubes_to_move, 
-                                                               cube_size, 
-                                                               lim_x, 
-                                                               lim_y, 
-                                                               safety_distance)
+    cubes_except_base = cube_positions.copy()
+    cubes_except_base_indexes = cube_indexes.copy()
+
+    closest_cube_0, closest_cube_index_0 = self.tower.find_closest_cube(cubes_except_base, desired_center, cubes_except_base_indexes)
+    print("========== Removed cube_{} from occupied space".format(closest_cube_index_0))
+
+    cubes_to_move_indexes.remove(closest_cube_index_0)
+    cubes_to_move.remove(closest_cube_0)
+    cubes_except_base_indexes.remove(closest_cube_index_0)
+    cubes_except_base.remove(closest_cube_0)
+
+    closest_cube, closest_cube_index = self.tower.find_closest_cube(cubes_except_base, desired_center, cubes_except_base_indexes)
+    print("========== Removed cube_{} from occupied space".format(closest_cube_index))
+
+    cubes_except_base_indexes.remove(closest_cube_index)
+    cubes_except_base.remove(closest_cube)
+
+    closest_cube, closest_cube_index = self.tower.find_closest_cube(cubes_except_base, desired_center, cubes_except_base_indexes)
+    print("========== Removed cube_{} from occupied space".format(closest_cube_index))
+
+    cubes_except_base_indexes.remove(closest_cube_index)
+    cubes_except_base.remove(closest_cube)
+
+    free_positions, impossible_positions = self.tower.find_free_space(cubes_except_base)
 
     self.tower.plot_free_space(free_positions, 
                         impossible_positions, 
-                        cube_size, 
-                        cubes_to_move, 
-                        lim_x, 
-                        lim_y, 
-                        safety_distance,
-                        cubes_to_move_indexes)
+                        cubes_except_base, 
+                        cubes_except_base_indexes)
     
     print("================= Generating tower strucutre with 3 cubes with vertical orientation starting from position of cube_{}:".format(closest_cube_index), closest_cube)
-    cubes_tower_pos = self.tower.creates_tower3_structure(closest_cube, orientation="vertical")
+    cubes_tower_pos = self.tower.creates_tower6_structure(closest_cube_0, orientation="horizontal")
     print("================= Tower strucure generated:",cubes_tower_pos)
-    placement_possible = self.tower.check_possible_tower_place(cubes_tower_pos, impossible_positions, safety_distance)
+    placement_possible = self.tower.check_possible_tower_place(cubes_tower_pos, impossible_positions, tower_type=6)
     print("================= Placement possible:",placement_possible)
     
     if placement_possible == False:
         sys.exit(1)
 
 
-    self.tower.plot_tower_place(free_positions, impossible_positions, cube_size, cubes_to_move, 
-                         lim_x, lim_y, safety_distance, cubes_to_move_indexes, cubes_tower_pos)
+    self.tower.plot_tower_place(free_positions, impossible_positions, cubes_except_base, cubes_except_base_indexes, cubes_tower_pos, tower_type=6)
 
     # Getting Pick  SIMULATION
-    pick_positions = [[*closest_cube,rospy.get_param("cube_0_z")]]
-    tower_closest_cube, closest_cube_index = self.tower.find_closest_cube_origin(cubes_to_move, closest_cube, cubes_to_move_indexes)
-    pick_positions.append([*tower_closest_cube,rospy.get_param("cube_0_z")])
-    cubes_to_move_indexes.remove(closest_cube_index)
-    cubes_to_move.remove(tower_closest_cube)
-    tower_closest_cube, closest_cube_index = self.tower.find_closest_cube_origin(cubes_to_move, closest_cube, cubes_to_move_indexes)
-    pick_positions.append([*tower_closest_cube,rospy.get_param("cube_0_z")])
+    pick_positions = [[*closest_cube_0,rospy.get_param("cube_0_z")]]
+
+    for i in range(5):
+      tower_closest_cube, closest_cube_index = self.tower.find_closest_cube(cubes_to_move, closest_cube_0, cubes_to_move_indexes)
+      pick_positions.append([*tower_closest_cube,rospy.get_param("cube_0_z")])
+      cubes_to_move_indexes.remove(closest_cube_index)
+      cubes_to_move.remove(tower_closest_cube)
 
     print("=========== Place positions:",cubes_tower_pos)
     print("=========== Pick positions:", pick_positions)
 
+    
     userdata.pick_positions = pick_positions
     userdata.cubes_tower_pos = cubes_tower_pos
 
@@ -144,7 +143,7 @@ class PlanTower(smach.State):
 def main():
  
 
-  tower = Tower()
+  tower = Tower(scenario="simulation")
   # Create a SMACH state machine container
   sm = smach.StateMachine(outcomes=['success','failed'])
  

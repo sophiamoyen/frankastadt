@@ -202,11 +202,11 @@ class Tower():
 
 
         if orientation == "vertical":
-            if self.scenario == "simualation":
-                cubes_tower_pos.append([desired_place[0]+0.045,desired_place[1],rospy.get_param("cube_0_z")]) # Simulation
-                cubes_tower_pos.append([desired_place[0]-0.045,desired_place[1],rospy.get_param("cube_0_z")]) # Simulation
-                cubes_tower_pos.append([desired_place[0]+0.0275,desired_place[1],rospy.get_param("cube_0_z")+0.1]) # Simulation
-                cubes_tower_pos.append([desired_place[0]-0.0275,desired_place[1],rospy.get_param("cube_0_z")+0.1]) # Simulation
+            if self.scenario == "simulation":
+                cubes_tower_pos.append([desired_place[0]+0.048,desired_place[1],rospy.get_param("cube_0_z")]) # Simulation
+                cubes_tower_pos.append([desired_place[0]-0.048,desired_place[1],rospy.get_param("cube_0_z")]) # Simulation
+                cubes_tower_pos.append([desired_place[0]+0.0295,desired_place[1],rospy.get_param("cube_0_z")+0.1]) # Simulation
+                cubes_tower_pos.append([desired_place[0]-0.0295,desired_place[1],rospy.get_param("cube_0_z")+0.1]) # Simulation
                 cubes_tower_pos.append([desired_place[0],desired_place[1],rospy.get_param("cube_0_z")+0.15]) # Simulation
 
             else:
@@ -218,10 +218,10 @@ class Tower():
                 
         if orientation == "horizontal":
             if self.scenario == "simulation":
-                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.045,rospy.get_param("cube_0_z")]) # Simulation
-                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.045,rospy.get_param("cube_0_z")]) # Simulation
-                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.0275,rospy.get_param("cube_0_z")+0.1]) # Simulation
-                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.0275,rospy.get_param("cube_0_z")+0.1]) # Simulation
+                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.048,rospy.get_param("cube_0_z")]) # Simulation
+                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.048,rospy.get_param("cube_0_z")]) # Simulation
+                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.0295,rospy.get_param("cube_0_z")+0.1]) # Simulation
+                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.0295,rospy.get_param("cube_0_z")+0.1]) # Simulation
                 cubes_tower_pos.append([desired_place[0],desired_place[1],rospy.get_param("cube_0_z")+0.15]) # Simulation
 
             else:
@@ -301,16 +301,21 @@ class Tower():
         ---------------------------------------------
         """
 
-        pick_orientation = [0.9239002820650952,  
+        pick_orientation_vertical = [0.9239002820650952,  
                             -0.3826324133679813, 
                             -0.000784053224384248,  
                             0.00030050087016984296]
 
+        place_orientation_horizontal = [0.9239002820650952,  
+                                        -0.3826324133679813, 
+                                        -0.000784053224384248,  
+                                        0.00030050087016984296]
+
         """ 
         --- Execution ---
         """
-        self.plan_and_move.setPickPose(*pick_position,*pick_orientation)
-        self.plan_and_move.setPlacePose(*place_position,*pick_orientation)
+        self.plan_and_move.setPickPose(*pick_position,*pick_orientation_vertical)
+        self.plan_and_move.setPlacePose(*place_position,*place_orientation_horizontal)
         self.plan_and_move.execute_pick()
         self.plan_and_move.execute_place()
 
