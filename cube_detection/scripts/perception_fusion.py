@@ -3,9 +3,10 @@ import rospy
 from nav_msgs.msg import Odometry
 
 import numpy as np
+import math
 
 DISTANCE_THRESHOLD = 0.05
-NUM_OF_CUBES = 5
+NUM_OF_CUBES = 7
 PREV_CUBE_MATCH_DISTANCE = 0.05
 
 class Cube:
@@ -42,6 +43,9 @@ class CubeFusion:
 
         self.run_matching()
 
+        if (len(self.cubes_pc) > NUM_OF_CUBES):
+            self.cubes_ed.clear()
+
     def callbackED(self, data):
         id = data.child_frame_id[-1]
         rospy.loginfo("ED "+ id)
@@ -55,8 +59,11 @@ class CubeFusion:
 
         self.run_matching()
 
+        if (len(self.cubes_ed) > NUM_OF_CUBES):
+            self.cubes_ed.clear()
+
     def run_matching(self):
-        if len(self.cubes_pc) > 0 and len(self.cubes_ed) > 0:
+        if len(self.cubes_pc) == NUM_OF_CUBES and len(self.cubes_ed) == NUM_OF_CUBES:
             rospy.loginfo("Performing cube matching...")
 
             for cube_pc in self.cubes_pc:
@@ -67,16 +74,38 @@ class CubeFusion:
                     # find logic for cubes that the rgbd edge detection didnt find
                     self.matched_cubes.append((Cube(cube_pc.id, cube_pc.x, cube_pc.y, cube_pc.z, closest_cube_ed.orientation, 0)))
 
-            if (self.prev_cubes):
-                self.match_with_prev()
+            #if (self.prev_cubes):
+                #self.match_with_prev()
                 # copy to prev
                 # delete matched
-            else:
-                self.publish_cubes()
+            #else:
+            self.publish_cubes()
 
             rospy.loginfo("Done with matching")
             self.cubes_pc = []
             self.cubes_ed = []
+
+    def convert_rotation(self, angle):
+        """
+        Converts a cube's rotation angle in 2D to a value between 0 and 45 degrees.
+
+        Args:
+            angle: The rotation angle in degrees (or radians).
+
+        Returns:
+            The converted angle between 0 and 45 degrees (or pi/4 radians).
+        """
+        # Normalize the angle to be between 0 and 360 degrees (or 2*pi radians)
+        angle = angle % 360
+
+        # Because the cube is symmetrical, we only care about the first quadrant (0 to 90 degrees)
+        if angle > 90:
+            angle = 180 - angle  # Reflect the angle to the first quadrant
+
+        # Adjust the angle to be between 0 and 45 degrees (or pi/4 radians)
+        converted_angle = min(angle, 90 - angle)
+
+        return converted_angle * math.pi / 180  # Convert to radians if needed
 
     def match_closest_cube(self, cube_pc):
         min_distance = float('inf')
@@ -155,13 +184,15 @@ class CubeFusion:
             cube_odom.pose.pose.position.z = cube.z
             cube_odom.pose.pose.orientation.x = 0
             cube_odom.pose.pose.orientation.y = 0
-            cube_odom.pose.pose.orientation.z = cube.rotation
+            cube_odom.pose.pose.orientation.z = self.convert_rotation(cube.orientation)
             cube_odom.pose.pose.orientation.w = 0
             #cube_odom.pose.pose.orientation.w = cube.confidence
 
-            print("Publishing Cube {}: ({}, {}, {}) - {}".format(cube.id, round(cube.x, 3), round(cube.y, 3), round(cube.z, 3), round(cube.rotation, 3)))
+            print("Publishing Cube {}: ({}, {}, {}) - {}".format(cube.id, round(cube.x, 3), round(cube.y, 3), round(cube.z, 3), round(cube.orientation, 3)))
             cube_publisher = rospy.Publisher("cube_{}_odom".format(cube.id), Odometry, queue_size=10)
             cube_publisher.publish(cube_odom)
+
+        self.matched_cubes.clear()
 
     def publisher(self):
         try:
