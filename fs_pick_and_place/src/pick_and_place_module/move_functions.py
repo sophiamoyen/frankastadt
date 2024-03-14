@@ -74,6 +74,7 @@ class PlanAndMove:
         j6 = 1.5713909927841874
         j7 = 0.785411093636176
         """
+        '''
         j1 = 0.004425608632595956 
         j2 = -0.1776332457239861
         j3 = -0.04997807565715949
@@ -81,9 +82,16 @@ class PlanAndMove:
         j5 = -0.0032382293592747883
         j6 = 1.6928230071740233
         j7 = 0.783730496518573
+        '''
+
+        move_group = self.moveit_control
+
+        joints = [-0.004206980856824341, -0.17810793743406797, -0.000250905855610183, -2.108358197583551, -0.0037260432143549826, 1.9190163774086315, 0.8117410393014712]
+
+        move_group.go_to_joint_state(*joints)
 
 
-        move_group.go_to_joint_state(j1,j2,j3,j4,j5,j6,j7)
+        #move_group.go_to_joint_state(j1,j2,j3,j4,j5,j6,j7)
 
     def move_left_pose(self):
         # Moves to standard fixed joint position

@@ -5,9 +5,10 @@ from nav_msgs.msg import Odometry
 import numpy as np
 
 DISTANCE_THRESHOLD = 0.05
+NUM_OF_CUBES = 5
 
 class Cube:
-    def __init__(self, id, x, y, z, orientation, confidence):
+    def __init__(self, id, x, y, z, orientation, confidence=None):
         self.id = id
         self.x = x
         self.y = y
@@ -24,7 +25,7 @@ class CubeFusion:
         self.matched_cubes = []
         self.prev_cubes = []
 
-        for cube_num in range(9):
+        for cube_num in range(NUM_OF_CUBES):
             self.cube_pc_subscriber = rospy.Subscriber("cube_{}_odom_pc".format(cube_num), Odometry, self.callbackPC)
             self.cube_ed_subscriber = rospy.Subscriber("cube_{}_odom_ed".format(cube_num), Odometry, self.callbackED)
 
@@ -54,16 +55,16 @@ class CubeFusion:
         self.run_matching()
 
     def run_matching(self):
-        if len(self.cubes_pc) == 6 and len(self.cubes_ed) == 6:
+        if len(self.cubes_pc) > 0 and len(self.cubes_ed) > 0:
             rospy.loginfo("Performing cube matching...")
 
             for cube_pc in self.cubes_pc:
                 min_distance, closest_cube_ed = self.match_closest_cube(cube_pc)
                 if (min_distance < DISTANCE_THRESHOLD):
-                    self.matched_cubes(Cube(cube_pc.id, cube_pc.x, cube_pc.y, cube_pc.z, closest_cube_ed.orientation, 1))
+                    self.matched_cubes.append((Cube(cube_pc.id, cube_pc.x, cube_pc.y, cube_pc.z, closest_cube_ed.orientation, 1)))
                 else:
                     # find logic for cubes that the rgbd edge detection didnt find
-                    self.matched_cubes(Cube(cube_pc.id, cube_pc.x, cube_pc.y, cube_pc.z, closest_cube_ed.orientation, 0))
+                    self.matched_cubes.append((Cube(cube_pc.id, cube_pc.x, cube_pc.y, cube_pc.z, closest_cube_ed.orientation, 0)))
 
             if (self.prev_cubes):
                 self.match_with_prev()
