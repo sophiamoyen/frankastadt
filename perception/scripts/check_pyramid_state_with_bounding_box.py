@@ -23,9 +23,6 @@ class PCPerception():
 
         # Set the work environment
         self.work_environment = "real"
-        self.using_icp = True
-        self.single_perception = False
-        self.first_perception_done = False
 
         # Additional parameters
         self.cube_diagonal = 0.0389
@@ -34,8 +31,6 @@ class PCPerception():
 
         # Create a cube for ground truth
         self.cube_gt = create_cube_gt(self.edge_len)
-        #self.cube_gt = create_pyramid_gt(3, 5, 0.045)
-        #self.cube_gt.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
 
         # Set the parameter for simulation or real world
         if self.work_environment == "gazebo":
@@ -43,21 +38,18 @@ class PCPerception():
             self.subscriber_node = "/zed2/point_cloud/cloud_registered"
             self.boundX = [-1, 1]
             self.boundY = [-1, 1]
-            self.boundZ = [-1, 1]
+            self.boundsZ = [[0, 0.84],[0.84, 0.89],[0.88, 1]]
             self.eps = 0.015
             self.min_points = 20
             self.voxel_size = 0.001
-            self.icp_min_points = 100
+            self.icp_min_points = 10
             self.distance_threshold = 0.01
         elif self.work_environment == "real":
             self.world_frame = "world"
             self.subscriber_node = "/zed2/zed_node/point_cloud/cloud_registered"
             self.boundX = [0, 1]
             self.boundY = [-0.5, 0.5]
-            self.boundZ = [-0.1, 0.3]
-            #self.boundZ = [-0.1, 0.055]
-            #self.boundZ = [0.07, 0.1]
-            #self.boundZ = [0.1, 0.15]
+            self.boundsZ = [[-0.1, 0.05],[0.07, 0.1],[0.1, 0.15]]
             self.eps = 0.03
             self.min_points = 40
             self.voxel_size = 0.005
@@ -67,14 +59,16 @@ class PCPerception():
         # Create a publisher for the downsampled point cloud
         self.pub = rospy.Publisher('segmented_pc', PointCloud2, queue_size=10)
 
-        self.num_of_cubes_pub = rospy.Publisher('num_cubes', String, queue_size=10)
-
-        # Create a publisher for the odometry of the cubes
-        self.cube_publisher = np.array([None]*self.number_of_cubes)
-        for i in range(self.number_of_cubes):
-            self.cube_publisher[i] = rospy.Publisher('cube_{}_odom'.format(i), Odometry, queue_size=10)
+        self.num_of_cubes_pub = rospy.Publisher('pyramid_state', String, queue_size=10)
     
-    #def perform_icp(self, source, target):
+    def check_cube_distance(self, positions, dist):
+
+        for i in range(len(positions)):
+            for j in range(i+1, len(positions)):
+                distance = np.linalg.norm(np.array(positions[i]) - np.array(positions[j]))
+                if distance > dist:
+                    return False
+        return True
         
     
     def publish_odometry(self, pos, rot, frame_id, child_frame_id, index):
@@ -113,105 +107,113 @@ class PCPerception():
         if transformed_pc is None:
             return
 
-        if self.single_perception and self.first_perception_done:
-            return
-
         # Voxel downsampling
         downpcd = transformed_pc.voxel_down_sample(self.voxel_size)
 
-        #downpcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
-
-        # Cropping
-        zf_cloud = crop_pointcloud(downpcd, self.boundX, self.boundY, self.boundZ)
-        
-        if self.boundZ[0] <= 0:
-            # Segment the largest planar component from the cropped cloud
-            outlier_cloud = segment_pc(zf_cloud, self.distance_threshold)
-            
-            if outlier_cloud.is_empty():
-                return
-        else:
-            outlier_cloud = zf_cloud
-
-        # Clustering
-        labels = cluster_pc(outlier_cloud, self.eps, self.min_points)
-        max_label = labels.max()
-
         cube_count = 0
+        positions = []
+        for j in range(2,-1,-1):
+            # Cropping
+            zf_cloud = crop_pointcloud(downpcd, self.boundX, self.boundY, self.boundsZ[j])
 
-        # Determine center and rotation of each cluster
-        for i in range(max_label + 1):
-            #print(f"Cluster {i}: {np.count_nonzero(labels == i)} points")
-            cube = outlier_cloud.select_by_index(np.where(labels == i)[0])
+            if zf_cloud.is_empty():
+                continue
 
-            '''
-            if not self.using_icp or np.asarray(cube.points).shape[0] < self.icp_min_points:
-                # Obtain the orientation of the cube
-                rotation = obtain_pc_rotation(cube)
-                quat = rotation_matrix_to_quaternion(rotation)
+            # Segment the largest planar component from the cropped cloud
+            if j == 0:
+                outlier_cloud = segment_pc(zf_cloud, self.distance_threshold)
+                
+                if outlier_cloud.is_empty():
+                    continue
+            else:
+                outlier_cloud = zf_cloud
+            # Clustering
+            labels = cluster_pc(outlier_cloud, self.eps, self.min_points)
+            max_label = labels.max()
 
-                # Obtain the position of the cube
-                bounding_box = cube.get_axis_aligned_bounding_box()
-                box_points = np.asarray(bounding_box.get_box_points())
-                z = sum(np.sort(box_points[:, 2])[4:])/4 - self.edge_len/2
-                center = bounding_box.get_center()
-                center[2] = z
+            layer = 0
+            base_candidates = []
+            
+            # Determine center and rotation of each cluster
+            for i in range(max_label + 1):
+                #print(f"Cluster {i}: {np.count_nonzero(labels == i)} points")
+                cube = outlier_cloud.select_by_index(np.where(labels == i)[0])
 
-                # Publish the odometry of each cube  
-                self.publish_odometry(center, quat, self.world_frame, self.world_frame, cube_count)
-                cube_count += 1
-                print("Cube " + str(cube_count) + ":")
-                print(center)
-                print(rotation_matrix_to_euler_angles(rotation), "\n")
-                self.first_perception_done = True
-            '''
-
-            # Perform ICP to separate the cubes within the cluster
-            if self.using_icp:
+                # Perform ICP to separate the cubes within the cluster
                 max_iter = 10
                 count = 0
+                cubes = []
                 while np.asarray(cube.points).shape[0] > self.icp_min_points and count < max_iter:
                     count += 1
-
                     # ICP
                     reg_p2p = o3d.pipelines.registration.registration_icp(
                         self.cube_gt, cube, 1, np.array([[1,0,0,0.5],[0,1,0,0],[0,0,1,0.8],[0,0,0,1]]), o3d.pipelines.registration.TransformationEstimationPointToPoint())
 
-                    
-                    #if reg_p2p.inlier_rmse > 0.02 or reg_p2p.inlier_rmse == 0:
-                    #    continue
-                    
-
-                    print(reg_p2p)
-
                     # Retrieve position and orientation from the transformation matrix TODO: Check transformation between raw_pos and pos
-                    raw_pos = [reg_p2p.transformation[0, 3], reg_p2p.transformation[1, 3], reg_p2p.transformation[2, 3]]
-                    pos = [reg_p2p.transformation[1, 3], -reg_p2p.transformation[0, 3], reg_p2p.transformation[2, 3]] # Transforms pos from o3d frame to world frame
+                    pos = [reg_p2p.transformation[0, 3], reg_p2p.transformation[1, 3], reg_p2p.transformation[2, 3]]
                     rotation = np.array([[reg_p2p.transformation[0, 0], -reg_p2p.transformation[1, 0], reg_p2p.transformation[2, 0]],
                                         [reg_p2p.transformation[0, 1], -reg_p2p.transformation[1, 1], reg_p2p.transformation[2, 1]],
                                         [reg_p2p.transformation[0, 2], -reg_p2p.transformation[1, 2], reg_p2p.transformation[2, 2]]])
                     rot = rotation_matrix_to_quaternion(rotation)
                     child_frame = 'cube_{}_odom'.format(cube_count)
-                    self.publish_odometry(raw_pos, rot, self.world_frame, self.world_frame, cube_count)
-                    cube_count += 1
+                    if j == 2:
+                        positions.append(pos)
+                        layer = 2
+                        break
+                    elif j == 1:
+                        positions.append(pos)
+                        if layer == 0:
+                            layer = 1
+                        if count == 2:
+                            break
+                    elif j == 0 and len(positions) == 0:
+                        cubes.append(pos)
+                        if len(cubes) > len(base_candidates) and self.check_cube_distance(cubes, 0.06):
+                            base_candidates = cubes
+                        if count == 3:
+                            break
+                    elif j == 0 and len(positions) > 0:
+                        #print("H")
+                        cubes.append(pos)
+                        if len(cubes) > len(base_candidates) and self.check_cube_distance(cubes, 0.06) and np.linalg.norm(np.array(cubes[0]) - np.array(positions[0])) < 0.15:
+                            base_candidates = cubes
+                        if count == 3:
+                            break
+                        
+                    #self.publish_odometry(pos, rot, self.world_frame, self.world_frame, cube_count)
 
                     # Remove the points within the radius of its diagonal
-                    cube = cube.select_by_index(np.where(np.linalg.norm(np.asarray(cube.points) - raw_pos, axis=1) > self.cube_diagonal)[0])
+                    cube = cube.select_by_index(np.where(np.linalg.norm(np.asarray(cube.points) - pos, axis=1) > self.cube_diagonal)[0])
 
                     # Print the position and orientation
-                    print("Cube " + str(cube_count) + ":")
-                    print(raw_pos)
-                    print(rotation_matrix_to_euler_angles(rotation), "\n")
-                    self.first_perception_done = True
+                    #print("Cube " + str(cube_count) + ":")
+                    #print(pos)
+                    #print(rotation_matrix_to_euler_angles(rotation), "\n")
         
         # Assign colors to the segmented point clouds for the visualization
+            """
+            if j == 0:
+                for k in range(len(base_candidates)):
+                    positions.append(base_candidates[k])
+                cube_count += len(base_candidates)
+            else:
+                cube_count += count
+            """
+            if layer == 2:
+                cube_count = 6
+                break
+            elif layer == 1:
+                cube_count = 3 + count
+                break
+            elif layer == 0:
+                cube_count = len(base_candidates)
+        #colors = plt.get_cmap("tab20")(labels / (max_label if max_label > 0 else 1))
+        #colors[labels < 0] = 0
+        #outlier_cloud.colors = o3d.utility.Vector3dVector(colors[:, :3])
+        #pcd_ros = o3dpc_to_rospc(outlier_cloud, msg.header, msg.fields, frame_id=self.world_frame)
+        print(positions)
         self.num_of_cubes_pub.publish(str(cube_count))
-        colors = plt.get_cmap("tab20")(labels / (max_label if max_label > 0 else 1))
-        colors[labels < 0] = 0
-        outlier_cloud.colors = o3d.utility.Vector3dVector(colors[:, :3])
-        pcd_ros = o3dpc_to_rospc(outlier_cloud, msg.header, msg.fields, frame_id=self.world_frame)
-
-        self.pub.publish(pcd_ros)
+        #self.pub.publish(pcd_ros)
     
 
 if __name__ == '__main__':
@@ -221,16 +223,6 @@ if __name__ == '__main__':
 
     pc_perception = PCPerception()
 
-    #pcd = create_pyramid_gt(5, 8, 0.045)
-    """
-    pcd = create_cube_gt_robot(0.045)
-    
-    o3d.visualization.draw_geometries([pcd],
-                                  zoom=0.3412,
-                                  front=[0.4257, -0.2125, -0.8795],
-                                  lookat=[0, 0, 0],
-                                  up=[-0.0694, -0.9768, 0.2024])
-    """
     rospy.Subscriber(pc_perception.subscriber_node, PointCloud2, pc_perception.pointcloud_callback)
 
     rospy.spin()

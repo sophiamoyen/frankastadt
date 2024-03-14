@@ -16,7 +16,7 @@ class PlanAndMove:
         self.gripper = Gripper()
 
     def setPickPose(self, x, y, z, qx, qy, qz, qw):
-        self.pick_pose = [x, y, z+0.1, qx, qy, qz, qw]
+        self.pick_pose = [x, y, z+0.11, qx, qy, qz, qw]
         self.after_pick_pose = [x, y, z+0.3, qx, qy, qz, qw]
 
     def setPlacePose(self, x, y, z, qx, qy, qz, qw):

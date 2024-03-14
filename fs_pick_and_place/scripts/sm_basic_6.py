@@ -55,7 +55,7 @@ class PlanTower(smach.State):
  
     rospy.loginfo('Executing state PLAN TOWER')
 
-    n_detected_cubes = 6
+    n_detected_cubes = 7
     desired_center = (0.5,0)
 
     
@@ -143,7 +143,7 @@ class PlanTower(smach.State):
 def main():
  
 
-  tower = Tower(scenario="simulation")
+  tower = Tower(scenario="real")
   # Create a SMACH state machine container
   sm = smach.StateMachine(outcomes=['success','failed'])
  

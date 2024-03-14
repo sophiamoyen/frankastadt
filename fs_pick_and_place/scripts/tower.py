@@ -195,7 +195,7 @@ class Tower():
         if self.scenario == "simulation":
             desired_place = [*desired_place,rospy.get_param("cube_0_z")]
         else:
-            desired_place = [*desired_place,0.04] # Real world
+            desired_place = [*desired_place,0.05] # Real world
 
         # Create list of poses for cubes in tower
         cubes_tower_pos = [desired_place]
@@ -225,11 +225,11 @@ class Tower():
                 cubes_tower_pos.append([desired_place[0],desired_place[1],rospy.get_param("cube_0_z")+0.15]) # Simulation
 
             else:
-                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.055,0.04]) # Real world
-                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.055,0.04]) # Real world
-                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.0275,0.1]) # Real world
-                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.0275,0.1]) # Real world
-                cubes_tower_pos.append([desired_place[0],desired_place[1],0.16]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.05,0.04]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.05,0.04]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.0275,0.95]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.0275,0.95]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1],0.15]) # Real world
 
         return(cubes_tower_pos) 
 
@@ -306,10 +306,8 @@ class Tower():
                             -0.000784053224384248,  
                             0.00030050087016984296]
 
-        place_orientation_horizontal = [0.9239002820650952,  
-                                        -0.3826324133679813, 
-                                        -0.000784053224384248,  
-                                        0.00030050087016984296]
+        place_orientation_horizontal = [-0.3910912566353432 , 0.9202848808642553, -0.006190671120423202 ,0.00922185594825598]
+
 
         """ 
         --- Execution ---
