@@ -6,6 +6,7 @@ import numpy as np
 
 DISTANCE_THRESHOLD = 0.05
 NUM_OF_CUBES = 5
+PREV_CUBE_MATCH_DISTANCE = 0.05
 
 class Cube:
     def __init__(self, id, x, y, z, orientation, confidence=None):
@@ -96,6 +97,13 @@ class CubeFusion:
 
         prev_number_of_cubes = len(self.prev_cubes)
         # continue
+        for current_cube in self.matched_cubes:
+            matched = False
+            for prev_cube in self.prev_cubes:
+                distance = self.calculate_distance(current_cube, prev_cube)
+
+                if distance < PREV_CUBE_MATCH_DISTANCE:
+                    pass
 
     def calculate_distance(self, cube1, cube2):
         # Euclidean distance between two cubes
