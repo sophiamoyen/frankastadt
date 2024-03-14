@@ -96,14 +96,50 @@ class CubeFusion:
         unmatched_cubes = []
 
         prev_number_of_cubes = len(self.prev_cubes)
-        # continue
         for current_cube in self.matched_cubes:
             matched = False
             for prev_cube in self.prev_cubes:
                 distance = self.calculate_distance(current_cube, prev_cube)
 
                 if distance < PREV_CUBE_MATCH_DISTANCE:
-                    pass
+                    matched = True
+                    # refine cube position?
+                    matched_cubes.append(Cube(prev_cube.id, current_cube.x, current_cube.y, current_cube.z, current_cube.orientation, current_cube.confidencd))
+                    matched_cubes_ids.append(prev_cube.id)
+                    break
+            if not matched:
+                unmatched_cubes.append(current_cube)
+
+        missing_ids = self.find_missing_ids(matched_cubes_ids, prev_number_of_cubes)
+
+        if (missing_ids):
+            missing_cubes_with_id = self.match_unmatched_cubes_to_id(unmatched_cubes, missing_ids, prev_number_of_cubes)
+
+        matched_cubes.append(cube for cube in missing_cubes_with_id)
+
+
+    def find_missing_ids(self, matched_cubes_ids, prev_number_of_cubes):
+        # sets of expected and matched ids
+        expected_ids = set(range(0, prev_number_of_cubes))
+        matched_ids = set(matched_cubes_ids)
+
+        # find difference between expected and matched
+        missing_ids = expected_ids - matched_ids
+
+        return sorted(missing_ids)
+
+    def match_unmatched_cubes_to_id(self, unmatched_cubes, missing_ids, prev_num_of_cubes):
+        cubes = []
+        id_count = 0
+        for unmachted_cube in unmatched_cubes:
+            if (id_count < len(missing_ids)):
+                cubes.append(Cube(missing_ids[id_count], unmachted_cube.x, unmachted_cube.y, unmachted_cube.z, unmachted_cube.orientation, unmachted_cube.confidence))
+                id_count += 1
+            else:
+                cubes.append(Cube(prev_num_of_cubes, unmachted_cube.x, unmachted_cube.y, unmachted_cube.z, unmachted_cube.orientation, unmachted_cube.confidence))
+                prev_num_of_cubes += 1
+
+        return cubes
 
     def calculate_distance(self, cube1, cube2):
         # Euclidean distance between two cubes
