@@ -26,7 +26,7 @@ else:
     # helps to eliminate noise on the table
     BLUR_SIZE = (27, 27)
     # to filter out the table depends on light conditions
-    BLACK_TABEL_THRESHOLD = 140
+    BLACK_TABEL_THRESHOLD = 150
     # threshold to decide weather detected cube is same as before
     MATCH_DISTANCE_THRESHOLD = 0.01
     # for deciding if contour is cube - outdated probably
@@ -137,91 +137,56 @@ class CubeDetector:
             area = abs(cv2.contourArea(contour))
             num_edges = len(edges)
             convexity = cv2.isContourConvex(edges)
-            text = f"Num Edges: {num_edges}, Area: {area}, Convex: {convexity}"
             M = cv2.moments(edges)
+            if M["m00"] != 0:
+                # Calculate centroid (position)
+                cx = int(M["m10"] / M["m00"])
+                cy = int(M["m01"] / M["m00"])
 
             if convexity and area > 1500:
-                if M["m00"] != 0:
-                    # Calculate centroid (position)
-                    cx = int(M["m10"] / M["m00"])
-                    cy = int(M["m01"] / M["m00"])
-                    center = np.array([cx, cy])
-                    cv2.circle(self.debug_image, (cx, cy), 5, (255, 0, 0), -1)
- 
-                    depth = self.depth_image[cy, cx]
-                    #print("depth ", depth)
+                
+                center = np.array([cx, cy])
+                cv2.circle(self.debug_image, (cx, cy), 5, (255, 0, 0), -1)
 
-                    camera_frame = self.pixel_to_camera_frame(cx, cy, depth)
-                    
-                    # transform points to world coordinate system
-                    transformed_point = self.transform_point(camera_frame)
+                depth = self.depth_image[cy, cx]
+                #print("depth ", depth)
+                camera_frame = self.pixel_to_camera_frame(cx, cy, depth)
+                
+                # transform points to world coordinate system
+                transformed_point = self.transform_point(camera_frame)
+                rect = cv2.minAreaRect(contour)
+                box = cv2.boxPoints(rect)
+                box = np.int0(box)
+                width = int(rect[1][0])
+                height = int(rect[1][1])
+                angle = int(rect[2])
 
-                    rect = cv2.minAreaRect(contour)
-                    box = cv2.boxPoints(rect)
-                    box = np.int0(box)
+                if width < height:
+                   angle = 90 - angle
+                else:
+                   angle = -angle
 
-                    width = int(rect[1][0])
-                    height = int(rect[1][1])
-                    angle = int(rect[2])
+                cv2.drawContours(self.debug_image,[box],0,(255,0,255),2)
+                cube_text = f"Cube {cube_count} : (" + str(round(width, 2)) + ", " + str(round(height, 2)) + ") " + str(round(height/width, 3)) + " A: " + str(round(area,2))
+                if (area > 6000):
+                    new_centroid_left, transformed_point_left, new_centroid_right, transformed_point_right = self.split_cubes(cx, cy, width, height, angle)
 
-                    if width < height:
-                       angle = 90 - angle
-                    else:
-                       angle = -angle
-
-                    cv2.drawContours(self.debug_image,[box],0,(255,0,255),2)
-
-                    cube_text = f"Cube {cube_count} : (" + str(round(width, 2)) + ", " + str(round(height, 2)) + ") " + str(round(height/width, 3)) + " A: " + str(round(area,2)) + " d: " + str(round(dist_to_image_center))
-
-                    if (area > 6000):
-                        # maybe mask everything to validate cubes
-                        angle_rad = np.radians(angle)
-                        # Calculate direction vector components based on the angle
-                        direction_vector = np.array([np.cos(-angle_rad), np.sin(-angle_rad)])
-
-                        move_distance = height / 4
-                        if (width > height):
-                            move_distance = width / 4
-                        
-                        # Calculate new centroid positions
-                        new_centroid_left = np.array([cx, cy]) - direction_vector * move_distance
-                        new_centroid_right = np.array([cx, cy]) + direction_vector * move_distance
-                        
-                        # For visualization, draw the new centroids on the debug image
-                        cv2.circle(self.debug_image, tuple(new_centroid_left.astype(int)), 5, (0, 0, 255), -1)
-                        cv2.circle(self.debug_image, tuple(new_centroid_right.astype(int)), 5, (255, 255, 0), -1)
-
-                        depth_left = self.depth_image[new_centroid_left[1].astype(int), new_centroid_left[0].astype(int)]
-                        depth_right = self.depth_image[new_centroid_right[1].astype(int), new_centroid_right[0].astype(int)]
-
-                        # Convert the pixel to camera frame using depth (if your function requires it)
-                        camera_frame_left_point = self.pixel_to_camera_frame(new_centroid_left[0].astype(int), new_centroid_left[1].astype(int), depth_left)
-                        camera_frame_right_point = self.pixel_to_camera_frame(new_centroid_right[0].astype(int), new_centroid_right[1].astype(int), depth_right)
-
-                        # Transform the point from the camera frame to the world frame
-                        transformed_point_left = self.transform_point(camera_frame_left_point)
-                        transformed_point_right = self.transform_point(camera_frame_right_point)
-
-                        cube_text_left = f"2 Cubes detected {cube_count} : (" + str(round(transformed_point_left.point.x, 2)) + ", " + str(round(transformed_point_left.point.y, 2)) + ")"
-                        detected_cubes.append(Cube(cube_count, transformed_point_left.point.x, transformed_point_left.point.y, transformed_point_left.point.z, angle))
-                        cube_count += 1
-                        cube_text_right = f"2 Cubes detected {cube_count} : (" + str(round(transformed_point_right.point.x, 2)) + ", " + str(round(transformed_point_right.point.y, 2)) + ")"
-                        detected_cubes.append(Cube(cube_count, transformed_point_right.point.x, transformed_point_right.point.y, transformed_point_right.point.z, angle))
-                        cube_count += 1
-
-                        cv2.putText(self.debug_image, cube_text_left, (new_centroid_left[0].astype(int)-150, new_centroid_left[1].astype(int)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,0), 2)
-                        cv2.putText(self.debug_image, cube_text_right, (new_centroid_right[0].astype(int)-150, new_centroid_right[1].astype(int)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,0), 2)
-                    else:
-                        #cube_text = f"Cube {cube_count} : (" + str(round(transformed_point.point.x , 2)) + ", " + str(round(transformed_point.point.y, 2)) + ")  orientation: " + str(angle)
-                        cv2.putText(self.debug_image, cube_text, (cx-350, cy -10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,0), 2)
-                        detected_cubes.append(Cube(cube_count, transformed_point.point.x, transformed_point.point.y, transformed_point.point.z, angle))
-                        cube_count += 1
+                    cube_text_left = f"2 Cubes detected {cube_count} : (" + str(round(transformed_point_left.point.x, 2)) + ", " + str(round(transformed_point_left.point.y, 2)) + ")"
+                    detected_cubes.append(Cube(cube_count, transformed_point_left.point.x, transformed_point_left.point.y, transformed_point_left.point.z, angle))
+                    cube_count += 1
+                    cube_text_right = f"2 Cubes detected {cube_count} : (" + str(round(transformed_point_right.point.x, 2)) + ", " + str(round(transformed_point_right.point.y, 2)) + ")"
+                    detected_cubes.append(Cube(cube_count, transformed_point_right.point.x, transformed_point_right.point.y, transformed_point_right.point.z, angle))
+                    cube_count += 1
+                    cv2.putText(self.debug_image, cube_text_left, (new_centroid_left[0].astype(int)-150, new_centroid_left[1].astype(int)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,0), 2)
+                    cv2.putText(self.debug_image, cube_text_right, (new_centroid_right[0].astype(int)-150, new_centroid_right[1].astype(int)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,0), 2)
+                else:
+                    #cube_text = f"Cube {cube_count} : (" + str(round(transformed_point.point.x , 2)) + ", " + str(round(transformed_point.point.y, 2)) + ")  orientation: " + str(angle)
+                    cv2.putText(self.debug_image, cube_text, (cx-150, cy -10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,0), 2)
+                    detected_cubes.append(Cube(cube_count, transformed_point.point.x, transformed_point.point.y, transformed_point.point.z, angle))
+                    cube_count += 1
 
             else:
-                if M["m00"] != 0 and area > 1500:
-                    # Calculate centroid (position)
-                    cx = int(M["m10"] / M["m00"])
-                    cy = int(M["m01"] / M["m00"])
+                if area > 1500:
                     rect = cv2.minAreaRect(contour)
                     box = cv2.boxPoints(rect)
                     box = np.int0(box)
@@ -232,14 +197,47 @@ class CubeDetector:
 
                     mask = np.zeros(self.cv_image.shape[:2], dtype=np.uint8)
                     cv2.drawContours(mask, [contour], -1, color=255, thickness=cv2.FILLED)
-                    #self.show_image(mask, "Mask", "gray")
-#
+
                     cv2.drawContours(self.debug_image,[box],0,(255,255,0),2)
                     cv2.circle(self.debug_image, (cx, cy), 5, (0, 255, 0), -1)
+                    text = f"Num Edges: {num_edges}, Area: {area}, Convex: {convexity}, Angle: {angle}"
+
                     cv2.putText(self.debug_image, text, (cx- 250, cy -10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 2)
                     
+                    new_centroid_left, transformed_point_left, new_centroid_right, transformed_point_right = self.split_cubes(cx, cy, width, height, angle)
+
+
         print("detected Cubes: ", len(detected_cubes))
         return detected_cubes        
+
+    def split_cubes(self,cx, cy, width, height, angle):
+        # maybe mask everything to validate cubes
+        angle_rad = np.radians(angle)
+        # Calculate direction vector components based on the angle
+        direction_vector = np.array([np.cos(-angle_rad), np.sin(-angle_rad)])
+        move_distance = height / 4
+        if (width > height):
+            move_distance = width / 4
+
+        print(angle)
+        
+        # Calculate new centroid positions
+        new_centroid_left = np.array([cx, cy]) - direction_vector * move_distance
+        new_centroid_right = np.array([cx, cy]) + direction_vector * move_distance
+        
+        # For visualization, draw the new centroids on the debug image
+        cv2.circle(self.debug_image, tuple(new_centroid_left.astype(int)), 5, (0, 0, 255), -1)
+        cv2.circle(self.debug_image, tuple(new_centroid_right.astype(int)), 5, (255, 255, 0), -1)
+        depth_left = self.depth_image[new_centroid_left[1].astype(int), new_centroid_left[0].astype(int)]
+        depth_right = self.depth_image[new_centroid_right[1].astype(int), new_centroid_right[0].astype(int)]
+        # Convert the pixel to camera frame using depth (if your function requires it)
+        camera_frame_left_point = self.pixel_to_camera_frame(new_centroid_left[0].astype(int), new_centroid_left[1].astype(int), depth_left)
+        camera_frame_right_point = self.pixel_to_camera_frame(new_centroid_right[0].astype(int), new_centroid_right[1].astype(int), depth_right)
+        # Transform the point from the camera frame to the world frame
+        transformed_point_left = self.transform_point(camera_frame_left_point)
+        transformed_point_right = self.transform_point(camera_frame_right_point)
+
+        return new_centroid_left, transformed_point_left, new_centroid_right, transformed_point_right
 
     def pixel_to_camera_frame(self, x, y, depth):
         uv_h = np.array([x, y, 1.0])

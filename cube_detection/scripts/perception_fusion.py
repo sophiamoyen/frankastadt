@@ -94,6 +94,7 @@ class CubeFusion:
         unmatched_cubes = []
 
         prev_number_of_cubes = len(self.prev_cubes)
+        # continue
 
     def calculate_distance(self, cube1, cube2):
         # Euclidean distance between two cubes
