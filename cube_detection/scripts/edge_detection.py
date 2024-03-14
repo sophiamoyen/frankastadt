@@ -36,12 +36,13 @@ else:
     MAX_AREA = 5500
 
 class Cube:
-    def __init__(self, id, x, y, z, rotation):
+    def __init__(self, id, x, y, z, rotation, confidence):
         self.id = id
         self.x = x
         self.y = y
         self.z = z
         self.rotation = rotation
+        self.confidence = confidence
 
 
 class CubeDetector:
@@ -137,26 +138,26 @@ class CubeDetector:
             area = abs(cv2.contourArea(contour))
             num_edges = len(edges)
             convexity = cv2.isContourConvex(edges)
-            M = cv2.moments(edges)
-            if M["m00"] != 0:
+
+            # filter everything that is smaller than 1500 (not a cube for sure)
+            if area > 1500:
+                M = cv2.moments(edges)
+
                 # Calculate centroid (position)
                 cx = int(M["m10"] / M["m00"])
                 cy = int(M["m01"] / M["m00"])
 
-            if convexity and area > 1500:
-                
-                center = np.array([cx, cy])
-                cv2.circle(self.debug_image, (cx, cy), 5, (255, 0, 0), -1)
-
+                # Depth
                 depth = self.depth_image[cy, cx]
-                #print("depth ", depth)
+
+                # Transform into world frame
                 camera_frame = self.pixel_to_camera_frame(cx, cy, depth)
-                
-                # transform points to world coordinate system
                 transformed_point = self.transform_point(camera_frame)
+
                 rect = cv2.minAreaRect(contour)
                 box = cv2.boxPoints(rect)
                 box = np.int0(box)
+
                 width = int(rect[1][0])
                 height = int(rect[1][1])
                 angle = int(rect[2])
@@ -164,51 +165,53 @@ class CubeDetector:
                 if width < height:
                    angle = 90 - angle
                 else:
-                   angle = -angle
+                    angle = -angle
 
-                cv2.drawContours(self.debug_image,[box],0,(255,0,255),2)
-                cube_text = f"Cube {cube_count} : (" + str(round(width, 2)) + ", " + str(round(height, 2)) + ") " + str(round(height/width, 3)) + " A: " + str(round(area,2))
-                if (area > 6500):
-                    new_centroid_left, transformed_point_left, new_centroid_right, transformed_point_right = self.split_cubes(cx, cy, width, height, angle)
-
-                    cube_text_left = f"2 Cubes detected {cube_count} : (" + str(round(transformed_point_left.point.x, 2)) + ", " + str(round(transformed_point_left.point.y, 2)) + ")"
-                    detected_cubes.append(Cube(cube_count, transformed_point_left.point.x, transformed_point_left.point.y, transformed_point_left.point.z, angle))
-                    cube_count += 1
-                    cube_text_right = f"2 Cubes detected {cube_count} : (" + str(round(transformed_point_right.point.x, 2)) + ", " + str(round(transformed_point_right.point.y, 2)) + ")"
-                    detected_cubes.append(Cube(cube_count, transformed_point_right.point.x, transformed_point_right.point.y, transformed_point_right.point.z, angle))
-                    cube_count += 1
-                    cv2.putText(self.debug_image, cube_text_left, (new_centroid_left[0].astype(int)-150, new_centroid_left[1].astype(int)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,0), 2)
-                    cv2.putText(self.debug_image, cube_text_right, (new_centroid_right[0].astype(int)-150, new_centroid_right[1].astype(int)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,0), 2)
-                else:
-                    #cube_text = f"Cube {cube_count} : (" + str(round(transformed_point.point.x , 2)) + ", " + str(round(transformed_point.point.y, 2)) + ")  orientation: " + str(angle)
-                    cv2.putText(self.debug_image, cube_text, (cx-150, cy -10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,0), 2)
-                    detected_cubes.append(Cube(cube_count, transformed_point.point.x, transformed_point.point.y, transformed_point.point.z, angle))
-                    cube_count += 1
-
-            else:
-                if area > 1500:
-                    rect = cv2.minAreaRect(contour)
-                    box = cv2.boxPoints(rect)
-                    box = np.int0(box)
+                if convexity:
+                    # draw dot in center
+                    cv2.circle(self.debug_image, (cx, cy), 5, (255, 0, 0), -1)
+                    # draw box around cube
+                    cv2.drawContours(self.debug_image,[box],0,(255,0,255),2)
+                    # text to display
+                    cube_text = f"Cube {cube_count} : (" + str(round(width, 2)) + ", " + str(round(height, 2)) + ") " + str(round(height/width, 3)) + " A: " + str(round(area,2))
                     
-                    width = int(rect[1][0])
-                    height = int(rect[1][1])
-                    angle = int(rect[2])
+                    # declared as 1 Cube
+                    if (area < 6500):
+                        #cube_text = f"Cube {cube_count} : (" + str(round(transformed_point.point.x , 2)) + ", " + str(round(transformed_point.point.y, 2)) + ")  orientation: " + str(angle)
+                        cv2.putText(self.debug_image, cube_text, (cx-150, cy -10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,0), 2)
+                        detected_cubes.append(Cube(cube_count, transformed_point.point.x, transformed_point.point.y, transformed_point.point.z, angle, 1))
+                        cube_count += 1
 
+                    # if area > 6500 its declared as 2 Cubes
+                    else:
+                        new_centroid_left, transformed_point_left, new_centroid_right, transformed_point_right = self.split_cubes(cx, cy, width, height, angle)
+
+                        cube_text_left = f"2 Cubes detected {cube_count} : (" + str(round(transformed_point_left.point.x, 2)) + ", " + str(round(transformed_point_left.point.y, 2)) + ")"
+                        detected_cubes.append(Cube(cube_count, transformed_point_left.point.x, transformed_point_left.point.y, transformed_point_left.point.z, angle, 0.5))
+                        cube_count += 1
+                        cube_text_right = f"2 Cubes detected {cube_count} : (" + str(round(transformed_point_right.point.x, 2)) + ", " + str(round(transformed_point_right.point.y, 2)) + ")"
+                        detected_cubes.append(Cube(cube_count, transformed_point_right.point.x, transformed_point_right.point.y, transformed_point_right.point.z, angle, 0.5))
+                        cube_count += 1
+
+                        cv2.putText(self.debug_image, cube_text_left, (new_centroid_left[0].astype(int)-150, new_centroid_left[1].astype(int)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,0), 2)
+                        cv2.putText(self.debug_image, cube_text_right, (new_centroid_right[0].astype(int)-150, new_centroid_right[1].astype(int)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,0), 2)
+            
+                # not sure about the cube constalation        
+                else:
+
+                    detected_cubes.append(Cube(cube_count, transformed_point.point.x, transformed_point.point.y, transformed_point.point.z, angle, 0))
                     mask = np.zeros(self.cv_image.shape[:2], dtype=np.uint8)
                     cv2.drawContours(mask, [contour], -1, color=255, thickness=cv2.FILLED)
-
                     cv2.drawContours(self.debug_image,[box],0,(255,255,0),2)
                     cv2.circle(self.debug_image, (cx, cy), 5, (0, 255, 0), -1)
-                    text = f"Num Edges: {num_edges}, Area: {area}, Convex: {convexity}, Angle: {angle}"
-
+                    text = f"Cube unsure: {cube_count}, Area: {area}, Convex: {convexity}, Angle: {angle}"
                     cv2.putText(self.debug_image, text, (cx- 250, cy -10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 2)
-                    
-                    new_centroid_left, transformed_point_left, new_centroid_right, transformed_point_right = self.split_cubes(cx, cy, width, height, angle)
+
+                    #new_centroid_left, transformed_point_left, new_centroid_right, transformed_point_right = self.split_cubes(cx, cy, width, height, angle)
 
 
         print("detected Cubes: ", len(detected_cubes))
-        return detected_cubes        
+        return detected_cubes    
 
     def split_cubes(self,cx, cy, width, height, angle):
         # maybe mask everything to validate cubes
