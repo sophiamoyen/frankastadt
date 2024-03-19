@@ -6,7 +6,7 @@ import numpy as np
 import math
 
 DISTANCE_THRESHOLD = 0.05
-NUM_OF_CUBES = 7
+NUM_OF_CUBES = int(rospy.get_param("num_cubes"))
 PREV_CUBE_MATCH_DISTANCE = 0.05
 
 class Cube:
@@ -33,7 +33,7 @@ class CubeFusion:
 
     def callbackPC(self, data):
         id = data.child_frame_id[-1]
-        rospy.loginfo("PC "+ id)
+        #rospy.loginfo("PC "+ id)
 
         x = data.pose.pose.position.x
         y = data.pose.pose.position.y
@@ -44,11 +44,11 @@ class CubeFusion:
         self.run_matching()
 
         if (len(self.cubes_pc) > NUM_OF_CUBES):
-            self.cubes_ed.clear()
+            self.cubes_pc.clear()
 
     def callbackED(self, data):
         id = data.child_frame_id[-1]
-        rospy.loginfo("ED "+ id)
+        #rospy.loginfo("ED "+ id)
 
         x = data.pose.pose.position.x
         y = data.pose.pose.position.y
@@ -58,9 +58,10 @@ class CubeFusion:
         self.cubes_ed.append(Cube(id, x, y, z, orientation))
 
         self.run_matching()
-
+        
         if (len(self.cubes_ed) > NUM_OF_CUBES):
             self.cubes_ed.clear()
+    
 
     def run_matching(self):
         if len(self.cubes_pc) == NUM_OF_CUBES and len(self.cubes_ed) == NUM_OF_CUBES:
@@ -96,16 +97,10 @@ class CubeFusion:
             The converted angle between 0 and 45 degrees (or pi/4 radians).
         """
         # Normalize the angle to be between 0 and 360 degrees (or 2*pi radians)
-        angle = angle % 360
+        angle = angle % 90
 
-        # Because the cube is symmetrical, we only care about the first quadrant (0 to 90 degrees)
-        if angle > 90:
-            angle = 180 - angle  # Reflect the angle to the first quadrant
-
-        # Adjust the angle to be between 0 and 45 degrees (or pi/4 radians)
-        converted_angle = min(angle, 90 - angle)
-
-        return converted_angle * math.pi / 180  # Convert to radians if needed
+        print("converted_angle",angle)
+        return angle * math.pi / 180  # Convert to radians if needed
 
     def match_closest_cube(self, cube_pc):
         min_distance = float('inf')
@@ -176,6 +171,7 @@ class CubeFusion:
 
     def publish_cubes(self):
         for cube in self.matched_cubes:
+            print("angle_",cube,":",cube.orientation)
             cube_odom = Odometry()
             cube_odom.header.frame_id = "world"
             cube_odom.child_frame_id = "cube_{}".format(cube.id)
@@ -188,7 +184,7 @@ class CubeFusion:
             cube_odom.pose.pose.orientation.w = 0
             #cube_odom.pose.pose.orientation.w = cube.confidence
 
-            print("Publishing Cube {}: ({}, {}, {}) - {}".format(cube.id, round(cube.x, 3), round(cube.y, 3), round(cube.z, 3), round(cube.orientation, 3)))
+            #print("Publishing Cube {}: ({}, {}, {}) - {}".format(cube.id, round(cube.x, 3), round(cube.y, 3), round(cube.z, 3), round(cube.orientation, 3)))
             cube_publisher = rospy.Publisher("cube_{}_odom".format(cube.id), Odometry, queue_size=10)
             cube_publisher.publish(cube_odom)
 

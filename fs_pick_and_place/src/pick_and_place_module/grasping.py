@@ -40,7 +40,7 @@ class Gripper:
         gripper_data.goal.force = 5.0
         gripper_data.goal.speed = 0.1
 
-        rospy.loginfo("Executing grasp Width:%f, Force:%f", width, force)
+        rospy.loginfo("Executing grasp Width:%f, Force:%f", gripper_data.goal.width, gripper_data.goal.force)
         
         self.gripper_pub.publish(gripper_data)
         rospy.sleep(3)

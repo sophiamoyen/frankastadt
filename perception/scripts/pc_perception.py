@@ -72,7 +72,7 @@ class PCPerception():
         # Create a publisher for the odometry of the cubes
         self.cube_publisher = np.array([None]*self.number_of_cubes)
         for i in range(self.number_of_cubes):
-            self.cube_publisher[i] = rospy.Publisher('cube_{}_odom'.format(i), Odometry, queue_size=10)
+            self.cube_publisher[i] = rospy.Publisher('cube_{}_odom_pc'.format(i), Odometry, queue_size=10)
     
     #def perform_icp(self, source, target):
         
@@ -196,7 +196,7 @@ class PCPerception():
                     cube_count += 1
 
                     # Remove the points within the radius of its diagonal
-                    cube = cube.select_by_index(np.where(np.linalg.norm(np.asarray(cube.points) - raw_pos, axis=1) > self.cube_diagonal)[0])
+                    cube = cube.select_by_index(np.where(np.linalg.norm(np.asarray(cube.points) - raw_pos, axis=1) > self.cube_diagonal+0.01)[0])
 
                     # Print the position and orientation
                     print("Cube " + str(cube_count) + ":")

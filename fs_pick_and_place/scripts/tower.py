@@ -33,7 +33,7 @@ class Tower():
         
 
 
-    def find_free_space(self, cube_positions):
+    def find_free_space(self, cube_poses):
         """
         Finds free space for a group of cubes on the table with reserved space in each cube.
 
@@ -44,6 +44,7 @@ class Tower():
             free_space: List of tuples representing free space positions (x, y) in cm.
             occupied_space: List of tuples representing occupied space positions (x, y) in cm.
         """
+        
         free_positions = []
         impossible_positions = []
         x_min = self.lim_x[0]
@@ -61,8 +62,9 @@ class Tower():
                 grid_pos = (x,y)
                 free = True
                 
-                for cube_pos in cube_positions:
-                    if (math.dist(grid_pos,cube_pos) <= self.safety_distance) or (x in x_limits) or (y in y_limits):
+                for cube_pose in cube_poses:
+                    cube_position = (cube_pose[0],cube_pose[1])
+                    if (math.dist(grid_pos,cube_position) <= self.safety_distance) or (x in x_limits) or (y in y_limits):
                         free = False
                         break
 
@@ -75,7 +77,7 @@ class Tower():
 
         return free_positions, impossible_positions
 
-    def plot_free_space(self, free_positions, impossible_positions, cube_positions,cube_indexes):
+    def plot_free_space(self, free_positions, impossible_positions, cube_poses, cube_yaws, cube_indexes):
         # Plot occupied and free spaces
         fig, ax = plt.subplots(figsize=((8,10)))
 
@@ -86,11 +88,13 @@ class Tower():
             # Plot impossible positions
             plt.plot(x, y, 'o', markersize=4, color='red')
 
-        colors = "bgrcmykw"
+        colors = ['b','g','r','c','m','y','k','w','violet']
         i = 0
-        for x, y in cube_positions:
+
+        for cube_pose in cube_poses:
             # Plot cubes
-            square = patches.Rectangle((x-0.0275, y-0.0275), self.cube_size, self.cube_size, angle=0.0, rotation_point='xy', edgecolor='black', facecolor=colors[cube_indexes[i]], label="cube_{}".format(cube_indexes[i]))
+            (x,y) = (cube_pose[0],cube_pose[1])
+            square = patches.Rectangle((x-0.0275, y-0.0275), self.cube_size, self.cube_size, angle=((cube_yaws[i]*180)/math.pi), rotation_point='center',edgecolor='black', facecolor=colors[cube_indexes[i]], label="cube_{}".format(cube_indexes[i]))
             Drawing_colored_circle = plt.Circle((x, y), self.safety_distance, fill = False)
             ax.add_artist( Drawing_colored_circle )
             ax.add_patch(square)
@@ -106,7 +110,7 @@ class Tower():
         plt.legend(loc='upper right')
         plt.show()
 
-    def plot_tower_place(self, free_positions, impossible_positions, cube_positions, 
+    def plot_tower_place(self, free_positions, impossible_positions, cube_poses, cube_yaws, 
                          cube_indexes, cubes_tower_pos, tower_type=3):
         # Plot occupied and free spaces
         fig, ax = plt.subplots(figsize=((8,10)))
@@ -124,11 +128,13 @@ class Tower():
         if tower_type == 6:
             base = 3
 
-        colors = "bgrcmykw"
+        colors = ['b','g','r','c','m','y','k','w','violet']
         i = 0
-        for x, y in cube_positions:
+        for cube_pose in cube_poses:
             # Plot cubes
-            square = patches.Rectangle((x-0.0275, y-0.0275), self.cube_size, self.cube_size, angle=0.0, rotation_point='xy' edgecolor='black', facecolor=colors[cube_indexes[i]], label="cube_{}".format(cube_indexes[i]))
+            (x,y) = (cube_pose[0],cube_pose[1])
+            # Plot cubes
+            square = patches.Rectangle((x-0.0275, y-0.0275), self.cube_size, self.cube_size, angle=(cube_yaws[i]*180)/math.pi, rotation_point='center',edgecolor='black', facecolor=colors[cube_indexes[i]], label="cube_{}".format(cube_indexes[i]))
             Drawing_colored_circle = plt.Circle((x, y), self.safety_distance, fill = False)
             ax.add_artist( Drawing_colored_circle )
             ax.add_patch(square)
@@ -137,7 +143,7 @@ class Tower():
 
         i = 0
         for cube_pos in cubes_tower_pos[:base]:
-            tower = patches.Rectangle((cube_pos[0]-0.0275, cube_pos[1]-0.0275),  self.cube_size, self.cube_size,angle=0.0, rotation_point='xy', edgecolor='black', facecolor='gold', label="tower_cube_{}".format(i))
+            tower = patches.Rectangle((cube_pos[0]-0.0275, cube_pos[1]-0.0275),  self.cube_size, self.cube_size, edgecolor='black', facecolor='gold', label="tower_cube_{}".format(i))
             Drawing_colored_circle = plt.Circle((cube_pos[0], cube_pos[1]), self.safety_distance, fill = False)
             ax.add_artist( Drawing_colored_circle )
             ax.add_patch(tower)
@@ -153,23 +159,24 @@ class Tower():
         plt.legend(loc='upper right')
         plt.show()
 
-    def find_closest_cube(self, cube_positions, origin, indexes):
+    def find_closest_cube(self, cube_poses, origin, indexes):
         closest_distance_origin = 1000 # Set distance very high
 
         i = 0
-        for cube_pos in cube_positions:
+        for cube_pose in cube_poses:
+            cube_pos  = (cube_pose[0],cube_pose[1])
             distance_origin = math.dist(cube_pos, origin)
             if distance_origin < closest_distance_origin:
                 # Checks if this cube is closer to the desired center than the previous ones
                 closest_distance_origin = distance_origin
-                closest_cube = cube_pos
+                closest_cube = cube_pose
                 closest_cube_index = indexes[i]
             i += 1
             
         print("Closest cube to origin: cube_{} with distance ".format(closest_cube_index),closest_distance_origin)
         return closest_cube, closest_cube_index
 
-    def creates_tower3_structure(self, desired_place, orientation="vertical"):
+    def creates_tower3_structure(self, desired_place, orientation="horizontal"):
         # Add z coordinate
         desired_place = [*desired_place,0.04] # Real world
         #desired_place = [*desired_place,rospy.get_param("cube_0_z")]
@@ -185,7 +192,7 @@ class Tower():
             #cubes_tower_pos.append([desired_place[0]+0.0275,desired_place[1],rospy.get_param("cube_0_z")+0.1]) # Simulation
 
         if orientation == "horizontal":
-            cubes_tower_pos.append([desired_place[0],desired_place[1]+0.045,0.04])
+            cubes_tower_pos.append([desired_place[0],desired_place[1]+0.055,0.04])
             cubes_tower_pos.append([desired_place[0],desired_place[1]+0.0275,0.1])
 
         return(cubes_tower_pos)
@@ -293,7 +300,7 @@ class Tower():
         front_bar_pose.pose.position.z = 0.4
         self.plan_and_move.moveit_control.scene.add_box("front_bar", front_bar_pose, size=(0.1, 1.49, 1.6))
 
-    def convert_orientation(cube_yaw):
+    def convert_orientation(self,cube_yaw):
         pick_orientation_vertical = [0.9239002820650952,
                                     -0.3826324133679813, 
                                     -0.000784053224384248,
@@ -312,6 +319,7 @@ class Tower():
         pick_orientation=quaternion_from_euler(ori[0],ori[1],ori[2],'sxyz')
 
         return pick_orientation
+
         
     def stack(self, place_position, pick_position, pick_orientation=[0.9239002820650952,-0.3826324133679813, -0.000784053224384248, 0.00030050087016984296]):
         self.plan_and_move.move_standard_pose()
@@ -326,10 +334,10 @@ class Tower():
                                     -0.000784053224384248,  
                                      0.00030050087016984296]
 
-        place_orientation_horizontal = [0.9239002820650952,  
-                                        -0.3826324133679813, 
-                                        -0.000784053224384248,  
-                                        0.00030050087016984296]
+        place_orientation_horizontal = [0.4134695331936024,
+                                        -0.9104340626144781,
+                                        -0.012313752255495124,
+                                        0.0010650151882551477]
 
         """ 
         --- Execution ---

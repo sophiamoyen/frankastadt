@@ -26,7 +26,7 @@ else:
     # helps to eliminate noise on the table
     BLUR_SIZE = (27, 27)
     # to filter out the table depends on light conditions
-    BLACK_TABEL_THRESHOLD = 131
+    BLACK_TABEL_THRESHOLD = 140
     # threshold to decide weather detected cube is same as before
     MATCH_DISTANCE_THRESHOLD = 0.01
     # for deciding if contour is cube - outdated probably
@@ -173,7 +173,7 @@ class CubeDetector:
                     # draw box around cube
                     cv2.drawContours(self.debug_image,[box],0,(255,0,255),2)
                     # text to display
-                    cube_text = f"Cube {cube_count} : (" + str(round(width, 2)) + ", " + str(round(height, 2)) + ") " + str(round(height/width, 3)) + " A: " + str(round(area,2))
+                    cube_text = f"Cube {cube_count} : (" + str(round(width, 2)) + ", " + str(round(height, 2)) + ") " + str(round(height/width, 3)) + " angle: " + str(round(angle,2))
                     
                     # declared as 1 Cube
                     if (area < 6500):
@@ -186,10 +186,10 @@ class CubeDetector:
                     else:
                         new_centroid_left, transformed_point_left, new_centroid_right, transformed_point_right = self.split_cubes(cx, cy, width, height, angle)
 
-                        cube_text_left = f"2 Cubes detected {cube_count} : (" + str(round(transformed_point_left.point.x, 2)) + ", " + str(round(transformed_point_left.point.y, 2)) + ")"
+                        cube_text_left = f"2 Cubes detected {cube_count} : (" + str(round(transformed_point_left.point.x, 2)) + ", " + str(round(transformed_point_left.point.y, 2)) + ") angle: " + str(round(angle,2)) 
                         detected_cubes.append(Cube(cube_count, transformed_point_left.point.x, transformed_point_left.point.y, transformed_point_left.point.z, angle, 0.5))
                         cube_count += 1
-                        cube_text_right = f"2 Cubes detected {cube_count} : (" + str(round(transformed_point_right.point.x, 2)) + ", " + str(round(transformed_point_right.point.y, 2)) + ")"
+                        cube_text_right = f"2 Cubes detected {cube_count} : (" + str(round(transformed_point_right.point.x, 2)) + ", " + str(round(transformed_point_right.point.y, 2)) + ") angle: " + str(round(angle,2))
                         detected_cubes.append(Cube(cube_count, transformed_point_right.point.x, transformed_point_right.point.y, transformed_point_right.point.z, angle, 0.5))
                         cube_count += 1
 
@@ -206,6 +206,7 @@ class CubeDetector:
                     cv2.circle(self.debug_image, (cx, cy), 5, (0, 255, 0), -1)
                     text = f"Cube unsure: {cube_count}, Area: {area}, Convex: {convexity}, Angle: {angle}"
                     cv2.putText(self.debug_image, text, (cx- 250, cy -10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 2)
+                    cube_count += 1
 
                     #new_centroid_left, transformed_point_left, new_centroid_right, transformed_point_right = self.split_cubes(cx, cy, width, height, angle)
 

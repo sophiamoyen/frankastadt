@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import rospy
 from nav_msgs.msg import Odometry
+from std_msgs.msg import String
 
 def callback(data):
 
@@ -13,12 +14,13 @@ def callback(data):
     rospy.set_param("cube_"+str(index)+"_orient_z",data.pose.pose.orientation.z)
     rospy.set_param("cube_"+str(index)+"_orient_w",data.pose.pose.orientation.w)
     
-
+def callback_cube_num(data):
+    rospy.set_param("num_cubes",data.data)
     
     
 def listener():
     rospy.init_node('listener', anonymous=True)
- 
+    rospy.Subscriber("num_cubes",String , callback_cube_num)
     rospy.Subscriber("cube_0_odom", Odometry, callback)
     rospy.Subscriber("cube_1_odom", Odometry, callback)
     rospy.Subscriber("cube_2_odom", Odometry, callback)
@@ -26,10 +28,10 @@ def listener():
     rospy.Subscriber("cube_4_odom", Odometry, callback)
     rospy.Subscriber("cube_5_odom", Odometry, callback)
     rospy.Subscriber("cube_6_odom", Odometry, callback)
-    """
     rospy.Subscriber("cube_7_odom", Odometry, callback)
     rospy.Subscriber("cube_8_odom", Odometry, callback)
     rospy.Subscriber("cube_9_odom", Odometry, callback)
+    """
     rospy.Subscriber("cube_10_odom", Odometry, callback)
     rospy.Subscriber("cube_11_odom", Odometry, callback)
     rospy.Subscriber("cube_12_odom", Odometry, callback)
