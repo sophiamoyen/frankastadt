@@ -60,19 +60,21 @@ class PlanTower(smach.State):
 
     
     cube_positions = []
+    cube_yaws = []
     cube_indexes = []
     for i in range(n_detected_cubes):
         pick_position = [rospy.get_param("cube_{}_x".format(i)),
                          rospy.get_param("cube_{}_y".format(i))]
+        cube_yaws.append(rospy.get_param("cube_{}_orient_z".format(i)))
         cube_positions.append(pick_position)
         cube_indexes.append(i)
 
     free_positions, impossible_positions = self.tower.find_free_space(cube_positions)
 
     self.tower.plot_free_space(free_positions, 
-                        impossible_positions, 
-                        cube_positions,
-                        cube_indexes)
+                                impossible_positions, 
+                                cube_positions,
+                                cube_indexes)
 
 
     cubes_to_move = cube_positions.copy()
@@ -122,12 +124,15 @@ class PlanTower(smach.State):
 
     # Getting Pick  SIMULATION
     pick_positions = [[*closest_cube_0,rospy.get_param("cube_0_z")]]
+    pick_orientations = [rospy.get_param("cube_0_orient_z")]
 
-    for i in range(5):
+    for i in range(1,5):
       tower_closest_cube, closest_cube_index = self.tower.find_closest_cube(cubes_to_move, closest_cube_0, cubes_to_move_indexes)
       pick_positions.append([*tower_closest_cube,rospy.get_param("cube_0_z")])
+      pick_orientations.append(rospy.get_param("cube_{}_orient_z".format(i)))
       cubes_to_move_indexes.remove(closest_cube_index)
       cubes_to_move.remove(tower_closest_cube)
+
 
     print("=========== Place positions:",cubes_tower_pos)
     print("=========== Pick positions:", pick_positions)

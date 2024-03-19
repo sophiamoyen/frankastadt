@@ -90,7 +90,7 @@ class Tower():
         i = 0
         for x, y in cube_positions:
             # Plot cubes
-            square = patches.Rectangle((x-0.0275, y-0.0275), self.cube_size, self.cube_size, edgecolor='black', facecolor=colors[cube_indexes[i]], label="cube_{}".format(cube_indexes[i]))
+            square = patches.Rectangle((x-0.0275, y-0.0275), self.cube_size, self.cube_size, angle=0.0, rotation_point='xy', edgecolor='black', facecolor=colors[cube_indexes[i]], label="cube_{}".format(cube_indexes[i]))
             Drawing_colored_circle = plt.Circle((x, y), self.safety_distance, fill = False)
             ax.add_artist( Drawing_colored_circle )
             ax.add_patch(square)
@@ -128,7 +128,7 @@ class Tower():
         i = 0
         for x, y in cube_positions:
             # Plot cubes
-            square = patches.Rectangle((x-0.0275, y-0.0275), self.cube_size, self.cube_size, edgecolor='black', facecolor=colors[cube_indexes[i]], label="cube_{}".format(cube_indexes[i]))
+            square = patches.Rectangle((x-0.0275, y-0.0275), self.cube_size, self.cube_size, angle=0.0, rotation_point='xy' edgecolor='black', facecolor=colors[cube_indexes[i]], label="cube_{}".format(cube_indexes[i]))
             Drawing_colored_circle = plt.Circle((x, y), self.safety_distance, fill = False)
             ax.add_artist( Drawing_colored_circle )
             ax.add_patch(square)
@@ -137,7 +137,7 @@ class Tower():
 
         i = 0
         for cube_pos in cubes_tower_pos[:base]:
-            tower = patches.Rectangle((cube_pos[0]-0.0275, cube_pos[1]-0.0275), 0.045, 0.045, edgecolor='black', facecolor='gold', label="tower_cube_{}".format(i))
+            tower = patches.Rectangle((cube_pos[0]-0.0275, cube_pos[1]-0.0275),  self.cube_size, self.cube_size,angle=0.0, rotation_point='xy', edgecolor='black', facecolor='gold', label="tower_cube_{}".format(i))
             Drawing_colored_circle = plt.Circle((cube_pos[0], cube_pos[1]), self.safety_distance, fill = False)
             ax.add_artist( Drawing_colored_circle )
             ax.add_patch(tower)
@@ -195,7 +195,7 @@ class Tower():
         if self.scenario == "simulation":
             desired_place = [*desired_place,rospy.get_param("cube_0_z")]
         else:
-            desired_place = [*desired_place,0.05] # Real world
+            desired_place = [*desired_place,0.04] # Real world
 
         # Create list of poses for cubes in tower
         cubes_tower_pos = [desired_place]
@@ -225,11 +225,11 @@ class Tower():
                 cubes_tower_pos.append([desired_place[0],desired_place[1],rospy.get_param("cube_0_z")+0.15]) # Simulation
 
             else:
-                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.05,0.04]) # Real world
-                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.05,0.04]) # Real world
-                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.0275,0.95]) # Real world
-                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.0275,0.95]) # Real world
-                cubes_tower_pos.append([desired_place[0],desired_place[1],0.15]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.055,0.04]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.055,0.04]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.0275,0.1]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.0275,0.1]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1],0.16]) # Real world
 
         return(cubes_tower_pos) 
 
@@ -292,8 +292,28 @@ class Tower():
         front_bar_pose.pose.position.y = 0
         front_bar_pose.pose.position.z = 0.4
         self.plan_and_move.moveit_control.scene.add_box("front_bar", front_bar_pose, size=(0.1, 1.49, 1.6))
+
+    def convert_orientation(cube_yaw):
+        pick_orientation_vertical = [0.9239002820650952,
+                                    -0.3826324133679813, 
+                                    -0.000784053224384248,
+                                     0.00030050087016984296]
+
+        rpy= euler_from_quaternion(pick_orientation_vertical)
+        yaw=(cube_yaw+2*pi)%(pi/2)
+
+
+        if yaw>=pi/4:
+            yaw=pi/2-yaw
+            ori=[rpy[0],rpy[1],rpy[2]+(-yaw)]
+        else:
+            ori=[rpy[0],rpy[1],rpy[2]+yaw]
+
+        pick_orientation=quaternion_from_euler(ori[0],ori[1],ori[2],'sxyz')
+
+        return pick_orientation
         
-    def stack(self, place_position, pick_position):
+    def stack(self, place_position, pick_position, pick_orientation=[0.9239002820650952,-0.3826324133679813, -0.000784053224384248, 0.00030050087016984296]):
         self.plan_and_move.move_standard_pose()
         """ 
         --- Picking ---
@@ -302,17 +322,19 @@ class Tower():
         """
 
         pick_orientation_vertical = [0.9239002820650952,  
-                            -0.3826324133679813, 
-                            -0.000784053224384248,  
-                            0.00030050087016984296]
+                                    -0.3826324133679813, 
+                                    -0.000784053224384248,  
+                                     0.00030050087016984296]
 
-        place_orientation_horizontal = [-0.3910912566353432 , 0.9202848808642553, -0.006190671120423202 ,0.00922185594825598]
-
+        place_orientation_horizontal = [0.9239002820650952,  
+                                        -0.3826324133679813, 
+                                        -0.000784053224384248,  
+                                        0.00030050087016984296]
 
         """ 
         --- Execution ---
         """
-        self.plan_and_move.setPickPose(*pick_position,*pick_orientation_vertical)
+        self.plan_and_move.setPickPose(*pick_position,*pick_orientation)
         self.plan_and_move.setPlacePose(*place_position,*place_orientation_horizontal)
         self.plan_and_move.execute_pick()
         self.plan_and_move.execute_place()
