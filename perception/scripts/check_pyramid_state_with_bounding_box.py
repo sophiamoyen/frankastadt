@@ -22,7 +22,7 @@ class PCPerception():
     def __init__(self):
 
         # Set the work environment
-        self.work_environment = "gazebo"
+        self.work_environment = "real"
 
         # Additional parameters
         self.cube_diagonal = 0.0389
@@ -49,7 +49,7 @@ class PCPerception():
             self.subscriber_node = "/zed2/zed_node/point_cloud/cloud_registered"
             self.boundX = [0, 1]
             self.boundY = [-0.5, 0.5]
-            self.boundZ = [-0.1, 0.2]
+            self.boundsZ = [[-0.1, 0.05],[0.07, 0.1],[0.1, 0.15]]
             self.eps = 0.03
             self.min_points = 40
             self.voxel_size = 0.005
@@ -60,6 +60,8 @@ class PCPerception():
         self.pub = rospy.Publisher('segmented_pc', PointCloud2, queue_size=10)
 
         self.num_of_cubes_pub = rospy.Publisher('pyramid_state', String, queue_size=10)
+
+        self.pyramid_odom_pub = rospy.Publisher('pyramid_odom', Odometry, queue_size=10)
     
     def check_cube_distance(self, positions, dist):
 
@@ -71,7 +73,7 @@ class PCPerception():
         return True
         
     
-    def publish_odometry(self, pos, rot, frame_id, child_frame_id, index):
+    def publish_odometry(self, pos, frame_id):
         '''
         Publish the odometry of the cubes
         Args:
@@ -82,17 +84,13 @@ class PCPerception():
             index (int): index of the cube
         '''
 
-        cube_odom = Odometry()
-        cube_odom.header.frame_id = frame_id
-        cube_odom.child_frame_id = "cube_{}".format(index)
-        cube_odom.pose.pose.position.x = pos[0]
-        cube_odom.pose.pose.position.y = pos[1]
-        cube_odom.pose.pose.position.z = pos[2]
-        cube_odom.pose.pose.orientation.x = rot[0]
-        cube_odom.pose.pose.orientation.y = rot[1]
-        cube_odom.pose.pose.orientation.z = rot[2]
-        cube_odom.pose.pose.orientation.w = rot[3]
-        self.cube_publisher[index].publish(cube_odom)
+        pyramid_odom = Odometry()
+        pyramid_odom.header.frame_id = frame_id
+        pyramid_odom.child_frame_id = "pyramid_odom"
+        pyramid_odom.pose.pose.position.x = pos[0]
+        pyramid_odom.pose.pose.position.y = pos[1]
+        pyramid_odom.pose.pose.position.z = pos[2]
+        self.pyramid_odom_pub.publish(pyramid_odom)
 
     # Downsampling, filtering, segmentation and clustering http://www.open3d.org/docs/latest/tutorial/Basic/pointcloud.html
     def pointcloud_callback(self, msg):
@@ -130,7 +128,7 @@ class PCPerception():
             # Clustering
             labels = cluster_pc(outlier_cloud, self.eps, self.min_points)
             max_label = labels.max()
-
+            layer = 0
             base_candidates = []
             
             # Determine center and rotation of each cluster
@@ -157,9 +155,12 @@ class PCPerception():
                     child_frame = 'cube_{}_odom'.format(cube_count)
                     if j == 2:
                         positions.append(pos)
+                        layer = 2
                         break
                     elif j == 1:
                         positions.append(pos)
+                        if layer == 0:
+                            layer = 1
                         if count == 2:
                             break
                     elif j == 0 and len(positions) == 0:
@@ -187,13 +188,31 @@ class PCPerception():
                     #print(rotation_matrix_to_euler_angles(rotation), "\n")
         
         # Assign colors to the segmented point clouds for the visualization
-            
+            """
             if j == 0:
                 for k in range(len(base_candidates)):
                     positions.append(base_candidates[k])
                 cube_count += len(base_candidates)
             else:
                 cube_count += count
+            """
+            if layer == 2:
+                cube_count = 6
+                self.publish_odometry(positions[0] - np.array([0, 0, 0.09]), self.world_frame)
+                break
+            elif layer == 1:
+                cube_count = 3 + count
+                if len(positions) > 1:
+                    self.publish_odometry((np.asarray(positions[0])+np.asarray(positions[1]))/2, self.world_frame)
+                else:
+                    self.publish_odometry(positions[0]-np.array([0,0.0225,0.045]), self.world_frame)
+                break
+            elif layer == 0:
+                cube_count = len(base_candidates)
+                if len(base_candidates) > 2:
+                    self.publish_odometry((np.asarray(base_candidates[0])+np.asarray(base_candidates[1])+np.asarray(base_candidates[2]))/3, self.world_frame)
+                elif len(base_candidates) > 1:
+                    self.publish_odometry(base_candidates[0], self.world_frame) if np.linalg.norm(np.array(base_candidates[0])) < np.linalg.norm(np.array(base_candidates[1])) else self.publish_odometry(base_candidates[1], self.world_frame)
         #colors = plt.get_cmap("tab20")(labels / (max_label if max_label > 0 else 1))
         #colors[labels < 0] = 0
         #outlier_cloud.colors = o3d.utility.Vector3dVector(colors[:, :3])

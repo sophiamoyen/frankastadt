@@ -54,7 +54,10 @@ class PCPerception():
             self.subscriber_node = "/zed2/zed_node/point_cloud/cloud_registered"
             self.boundX = [0, 1]
             self.boundY = [-0.5, 0.5]
-            self.boundZ = [-0.1, 0.2]
+            self.boundZ = [-0.1, 0.3]
+            #self.boundZ = [-0.1, 0.055]
+            #self.boundZ = [0.07, 0.1]
+            #self.boundZ = [0.1, 0.15]
             self.eps = 0.03
             self.min_points = 40
             self.voxel_size = 0.005
@@ -120,12 +123,15 @@ class PCPerception():
 
         # Cropping
         zf_cloud = crop_pointcloud(downpcd, self.boundX, self.boundY, self.boundZ)
-
-        # Segment the largest planar component from the cropped cloud
-        outlier_cloud = segment_pc(zf_cloud, self.distance_threshold)
         
-        if outlier_cloud.is_empty():
-            return
+        if self.boundZ[0] <= 0:
+            # Segment the largest planar component from the cropped cloud
+            outlier_cloud = segment_pc(zf_cloud, self.distance_threshold)
+            
+            if outlier_cloud.is_empty():
+                return
+        else:
+            outlier_cloud = zf_cloud
 
         # Clustering
         labels = cluster_pc(outlier_cloud, self.eps, self.min_points)
@@ -172,8 +178,8 @@ class PCPerception():
                         self.cube_gt, cube, 1, np.array([[1,0,0,0.5],[0,1,0,0],[0,0,1,0.8],[0,0,0,1]]), o3d.pipelines.registration.TransformationEstimationPointToPoint())
 
                     
-                    if reg_p2p.inlier_rmse > 0.02 or reg_p2p.inlier_rmse == 0:
-                        continue
+                    #if reg_p2p.inlier_rmse > 0.02 or reg_p2p.inlier_rmse == 0:
+                    #    continue
                     
 
                     print(reg_p2p)
@@ -216,15 +222,15 @@ if __name__ == '__main__':
     pc_perception = PCPerception()
 
     #pcd = create_pyramid_gt(5, 8, 0.045)
+    """
+    pcd = create_cube_gt_robot(0.045)
     
-    #pcd = create_cube_gt(0.045)
-    '''
     o3d.visualization.draw_geometries([pcd],
                                   zoom=0.3412,
                                   front=[0.4257, -0.2125, -0.8795],
                                   lookat=[0, 0, 0],
                                   up=[-0.0694, -0.9768, 0.2024])
-    '''
+    """
     rospy.Subscriber(pc_perception.subscriber_node, PointCloud2, pc_perception.pointcloud_callback)
 
     rospy.spin()

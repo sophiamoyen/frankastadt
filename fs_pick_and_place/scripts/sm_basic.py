@@ -85,7 +85,7 @@ class PlanTower(smach.State):
                         safety_distance,
                         cube_indexes)
 
-    closest_cube, closest_cube_index = self.tower.find_closest_cube_origin(cube_positions, desired_center, cube_indexes)
+    closest_cube, closest_cube_index = self.tower.find_closest_cube(cube_positions, desired_center, cube_indexes)
     print("========== Removed cube_{} from occupied space".format(closest_cube_index))
 
 

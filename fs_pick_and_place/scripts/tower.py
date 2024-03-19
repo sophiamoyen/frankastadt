@@ -11,13 +11,14 @@ import matplotlib.patches as patches
 import sys
 
 class Tower():
-    def __init__(self, cube_size=0.045, lim_x=[0.10,0.80], lim_y=[-0.50,0.50], desired_center= [0.50,0]):
+    def __init__(self, cube_size=0.045, lim_x=[0.10,0.80], lim_y=[-0.50,0.50], desired_center= [0.50,0],scenario="simulation"):
         self.plan_and_move = PlanAndMove()
         self.cube_size = cube_size  # cm
         self.lim_y = lim_y
         self.lim_x = lim_x
         self.safety_distance = self.cube_size*math.sqrt(2)
         self.desired_center = desired_center
+        self.scenario = scenario
         
         
     def get_detected_cubes(self, n_detected_cubes):
@@ -106,7 +107,7 @@ class Tower():
         plt.show()
 
     def plot_tower_place(self, free_positions, impossible_positions, cube_positions, 
-                         cube_indexes, cubes_tower_pos):
+                         cube_indexes, cubes_tower_pos, tower_type=3):
         # Plot occupied and free spaces
         fig, ax = plt.subplots(figsize=((8,10)))
 
@@ -116,6 +117,12 @@ class Tower():
         for x, y in impossible_positions:
             # Plot impossible positions
             plt.plot(x, y, 'o', markersize=4, color='red')
+
+
+        if tower_type == 3:
+            base = 2
+        if tower_type == 6:
+            base = 3
 
         colors = "bgrcmykw"
         i = 0
@@ -129,7 +136,7 @@ class Tower():
             i += 1
 
         i = 0
-        for cube_pos in cubes_tower_pos[:2]:
+        for cube_pos in cubes_tower_pos[:base]:
             tower = patches.Rectangle((cube_pos[0]-0.0275, cube_pos[1]-0.0275), 0.045, 0.045, edgecolor='black', facecolor='gold', label="tower_cube_{}".format(i))
             Drawing_colored_circle = plt.Circle((cube_pos[0], cube_pos[1]), self.safety_distance, fill = False)
             ax.add_artist( Drawing_colored_circle )
@@ -146,7 +153,7 @@ class Tower():
         plt.legend(loc='upper right')
         plt.show()
 
-    def find_closest_cube(self, cube_positions, indexes, origin=(0.5,0)):
+    def find_closest_cube(self, cube_positions, origin, indexes):
         closest_distance_origin = 1000 # Set distance very high
 
         i = 0
@@ -164,28 +171,74 @@ class Tower():
 
     def creates_tower3_structure(self, desired_place, orientation="vertical"):
         # Add z coordinate
-        #desired_place = [*desired_place,0.04] # Real world
-        desired_place = [*desired_place,rospy.get_param("cube_0_z")]
+        desired_place = [*desired_place,0.04] # Real world
+        #desired_place = [*desired_place,rospy.get_param("cube_0_z")]
 
         # Create list of poses for cubes in tower
         cubes_tower_pos = [desired_place]
 
 
         if orientation == "vertical":
-            #cubes_tower_pos.append([desired_place[0]+0.055,desired_place[1],0.04]) # Real world
-            cubes_tower_pos.append([desired_place[0]+0.045,desired_place[1],rospy.get_param("cube_0_z")]) # Simulation
-            #cubes_tower_pos.append([desired_place[0]+0.0275,desired_place[1],0.1]) # Real world
-            cubes_tower_pos.append([desired_place[0]+0.0275,desired_place[1],rospy.get_param("cube_0_z")+0.1]) # Simulation
+            cubes_tower_pos.append([desired_place[0]+0.055,desired_place[1],0.04]) # Real world
+            #cubes_tower_pos.append([desired_place[0]+0.045,desired_place[1],rospy.get_param("cube_0_z")]) # Simulation
+            cubes_tower_pos.append([desired_place[0]+0.0275,desired_place[1],0.1]) # Real world
+            #cubes_tower_pos.append([desired_place[0]+0.0275,desired_place[1],rospy.get_param("cube_0_z")+0.1]) # Simulation
 
         if orientation == "horizontal":
             cubes_tower_pos.append([desired_place[0],desired_place[1]+0.045,0.04])
             cubes_tower_pos.append([desired_place[0],desired_place[1]+0.0275,0.1])
 
         return(cubes_tower_pos)
-        
 
-    def check_possible_tower_place(self, cubes_tower_pos, impossible_positions):
-        base_cubes = cubes_tower_pos[:2] # For tower of 3 cubes, gets the 2 base cubes of the tower
+    def creates_tower6_structure(self, desired_place, orientation="horizontal"):
+        # Add z coordinate
+        if self.scenario == "simulation":
+            desired_place = [*desired_place,rospy.get_param("cube_0_z")]
+        else:
+            desired_place = [*desired_place,0.05] # Real world
+
+        # Create list of poses for cubes in tower
+        cubes_tower_pos = [desired_place]
+
+
+        if orientation == "vertical":
+            if self.scenario == "simulation":
+                cubes_tower_pos.append([desired_place[0]+0.048,desired_place[1],rospy.get_param("cube_0_z")]) # Simulation
+                cubes_tower_pos.append([desired_place[0]-0.048,desired_place[1],rospy.get_param("cube_0_z")]) # Simulation
+                cubes_tower_pos.append([desired_place[0]+0.0295,desired_place[1],rospy.get_param("cube_0_z")+0.1]) # Simulation
+                cubes_tower_pos.append([desired_place[0]-0.0295,desired_place[1],rospy.get_param("cube_0_z")+0.1]) # Simulation
+                cubes_tower_pos.append([desired_place[0],desired_place[1],rospy.get_param("cube_0_z")+0.15]) # Simulation
+
+            else:
+                cubes_tower_pos.append([desired_place[0]+0.055,desired_place[1],0.04]) # Real world
+                cubes_tower_pos.append([desired_place[0]-0.055,desired_place[1],0.04]) # Real world
+                cubes_tower_pos.append([desired_place[0]+0.0275,desired_place[1],0.1]) # Real world
+                cubes_tower_pos.append([desired_place[0]-0.0275,desired_place[1],0.1]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1],0.16]) # Real world
+                
+        if orientation == "horizontal":
+            if self.scenario == "simulation":
+                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.048,rospy.get_param("cube_0_z")]) # Simulation
+                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.048,rospy.get_param("cube_0_z")]) # Simulation
+                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.0295,rospy.get_param("cube_0_z")+0.1]) # Simulation
+                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.0295,rospy.get_param("cube_0_z")+0.1]) # Simulation
+                cubes_tower_pos.append([desired_place[0],desired_place[1],rospy.get_param("cube_0_z")+0.15]) # Simulation
+
+            else:
+                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.05,0.04]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.05,0.04]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.0275,0.95]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.0275,0.95]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1],0.15]) # Real world
+
+        return(cubes_tower_pos) 
+
+    def check_possible_tower_place(self, cubes_tower_pos, impossible_positions, tower_type=3):
+        if tower_type == 6:
+            base_cubes = cubes_tower_pos[:3] # For tower of 6 cubes, gets the 3 base cubes of the tower
+        if tower_type == 3:
+            base_cubes = cubes_tower_pos[:2] # For tower of 3 cubes, gets the 2 base cubes of the tower
+    
 
         placement_possible = True
         for cube_pos in base_cubes:
@@ -248,16 +301,19 @@ class Tower():
         ---------------------------------------------
         """
 
-        pick_orientation = [0.9239002820650952,  
+        pick_orientation_vertical = [0.9239002820650952,  
                             -0.3826324133679813, 
                             -0.000784053224384248,  
                             0.00030050087016984296]
 
+        place_orientation_horizontal = [-0.3910912566353432 , 0.9202848808642553, -0.006190671120423202 ,0.00922185594825598]
+
+
         """ 
         --- Execution ---
         """
-        self.plan_and_move.setPickPose(*pick_position,*pick_orientation)
-        self.plan_and_move.setPlacePose(*place_position,*pick_orientation)
+        self.plan_and_move.setPickPose(*pick_position,*pick_orientation_vertical)
+        self.plan_and_move.setPlacePose(*place_position,*place_orientation_horizontal)
         self.plan_and_move.execute_pick()
         self.plan_and_move.execute_place()
 
