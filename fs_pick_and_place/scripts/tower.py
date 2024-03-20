@@ -21,16 +21,20 @@ class Tower():
         self.scenario = scenario
         
         
-    def get_detected_cubes(self, n_detected_cubes):
-        cube_positions = []
-        for i in range(n_detected_cubes):
-            pick_position = [rospy.get_param("cube_{}_x".format(i))-0.01,
-                             rospy.get_param("cube_{}_y".format(i))-0.05,
-                             0.04]
-            cube_positions.append(pick_position)
+    def get_detected_cubes(self, num_cubes):
+        cubes_poses = []
+        cubes_yaws = []
+        cubes_ids = []
 
-        return(cube_positions)
+        for i in range(num_cubes):
+            cube_pose = [rospy.get_param("cube_{}_x".format(i)),
+                        rospy.get_param("cube_{}_y".format(i)),
+                        self.tower.convert_orientation(rospy.get_param("cube_{}_orient_z".format(i)))]
+            cubes_yaws.append(rospy.get_param("cube_{}_orient_z".format(i)))
+            cubes_poses.append(cube_pose)
+            cubes_ids.append(i)
         
+        return cubes_poses, cubes_ids, cubes_yaws
 
 
     def find_free_space(self, cube_poses):
@@ -109,6 +113,30 @@ class Tower():
         plt.title("Occupancy Grid")
         plt.legend(loc='upper right')
         plt.show()
+
+    def clears_space_for_tower(self, cubes_poses, cubes_yaws, cubes_ids, tower_base=3):
+        for i in range(min(tower_base,len(cubes_poses))):
+            close_cube_pose, close_cube_id = self.find_closest_cube(cubes_poses, self.desired_center, cubes_ids)
+            print("========== Removed cube_{} from occupied space".format(closest_cube_id))
+
+            cubes_ids.remove(close_cube_id)
+            cubes_poses.remove(close_cube_pose)
+            cubes_yaws.pop(close_cube_id)
+
+            if i==0:
+                closest_cube_id = close_cube_id
+                closest_cube_pose = close_cube_pose
+
+        free_pos, occupied_pos = self.find_free_space(cubes_poses)
+
+        self.tower.plot_free_space(free_pos, 
+                                    occupied_pos, 
+                                    cubes_poses, 
+                                    cubes_yaws,
+                                    cubes_ids)
+
+        return free_pos, occupied_pos, closest_cube_id, closest_cube_pose, cubes_poses, cubes_yaws, cubes_ids
+    
 
     def plot_tower_place(self, free_positions, impossible_positions, cube_poses, cube_yaws, 
                          cube_indexes, cubes_tower_pos, tower_type=3):

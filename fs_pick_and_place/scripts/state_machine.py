@@ -32,21 +32,41 @@ class Init(smach.State):
     self.tower.collision_scene()
     # Goes to standard pose
     self.tower.plan_and_move.move_standard_pose()
-
     return 'init_success'
 
 # Define state SCAN
 class Scan(smach.State):
   def __init__(self, tower):
-    smach.State.__init__(self, outcomes=['tower_identified','no_tower_identified'])
+    smach.State.__init__(self, outcomes=['tower_identified','no_tower_identified'],output_keys=['cubes_poses','cubes_ids','cubes_yaws','tower_state'])
     self.tower = tower
 
   def execute(self, userdata):
     sleep(1)
     rospy.loginfo('Executing state SCAN')
 
-    
-    outcome = input("Enter outcome:")
+    # Getting number of detected cubes
+    num_cubes = int(rospy.get_param("num_cubes"))
+
+    # Getting the poses of the detected cubes in a list
+    cubes_poses, cubes_ids, cubes_yaws = self.tower.get_detected_cubes(num_cubes)
+
+    # EDIT HERE TOWER STATE
+    tower_state = input("Enter outcome:")
+
+    # Outputs data flow for the state machine
+    userdata.cubes_poses = cubes_poses
+    userdata.cubes_ids = cubes_ids
+    userdata.cubes_yaws = cubes_yaws
+    userdata.cubes_yaws = cubes_yaws
+    userdata.tower_state = tower_state
+
+    if tower_state=='0':
+      outcome = 'no_tower_identified'
+
+    else:
+      outcome = 'tower_identified'
+      
+      
     return outcome
 
 
@@ -65,47 +85,78 @@ class ResumeTower(smach.State):
     return outcome
 
 
-# Define state OCCUPIED_GRID
-class OccupiedGrid(smach.State):
+
+# Define state PLAN_TOWER
+class PlanTower(smach.State):
   def __init__(self, tower):
-    smach.State.__init__(self, outcomes=['grid_generated'])
+    smach.State.__init__(self, outcomes=['fail','tower_plan_success'],input_keys=['cubes_poses','cubes_ids','cubes_yaws'],output_keys=['cubes_poses_place','cubes_poses_pick'])
     self.tower = tower
 
   def execute(self, userdata):
     sleep(1)
      
-    rospy.loginfo('Executing state OCCUPIED_GRID')
+    rospy.loginfo('Executing state PLAN_TOWER')
+    # Checks cubes' poses and generated grid with occupied and free spots
+    free_pos_general, occupied_pos_general = self.tower.find_free_space(userdata.cubes_poses)
 
-    outcome = input("Enter outcome:")
+    # Plots occupancy grid
+    self.tower.plot_free_space(free_pos_general, 
+                               occupied_pos_general, 
+                               userdata.cubes_poses,
+                               userdata.cubes_yaws,
+                               userdata.cubes_ids)
+
+    # Tries to build a tower around each cube first
+    poses = userdata.cubes_poses.copy()
+    ids = userdata.cubes_ids.copy()
+    yaws = userdata.cubes_yaws.copy()
+
+    for index in userdata.cubes_ids:
+      free_pos, occupied_pos, closest_cube_id, closest_cube_pose, cubes_poses_except_base, cubes_yaws_except_base, cubes_ids_except_base = self.tower.clears_space_for_tower(poses, ids, yaws, tower_base=3)
+        
+      print("================= Generating tower strucutre starting from cube_{}:".format(closest_cube_id), closest_cube_pose)
+      cubes_tower_pos = self.tower.creates_tower6_structure(closest_cube_pose, orientation="horizontal")
+      print("================= Tower strucure generated:",cubes_tower_pos)
+      placement_possible = self.tower.check_possible_tower_place(cubes_tower_pos, occupied_pos, tower_type=6)
+      print("================= Placement possible:",placement_possible)
+      
+      if placement_possible == True:
+        
+        self.tower.plot_tower_place(free_pos, occupied_pos, cubes_poses_except_base, cubes_yaws_except_base, cubes_ids_except_base, cubes_tower_pos, tower_type=6)
+
+        # Getting Pick Poses
+        poses = userdata.cubes_poses.copy()
+        ids = userdata.cubes_ids.copy()
+
+        pick_poses = []
+        for i in range(len(userdata.cubes_poses)):
+          tower_closest_cube, closest_cube_id = self.tower.find_closest_cube(poses, (closest_cube_pose[0],closest_cube_pose[1]), ids)
+          pick_poses.append([tower_closest_cube[0],tower_closest_cube[1],0.04,tower_closest_cube[2]])
+
+          ids.remove(close_cube_id)
+          poses.remove(tower_closest_cube)
+
+
+        print("=========== Place positions:",cubes_tower_pos)
+        print("=========== Pick positions:", pick_poses)
+
+        
+        userdata.pcubes_poses_pick = pick_poses
+        userdata.cubes_poses_place = cubes_tower_pos
+        outcome = 'tower_plan_success'
+        break
+
+      ids.remove(close_cube_id)
+      poses.remove(closest_cube_pose)
+      yaws.pop(closest_cube_id)
+
+    
+    if placement_possible == False:
+      print("================= Couldn't find free space to build tower =================")
+      outcome = 'fail'
+
     return outcome
 
-# Define state TRY_TOWER_FIXED_CUBE
-class TryTowerFixedCube(smach.State):
-  def __init__(self, tower):
-    smach.State.__init__(self, outcomes=['tower_plan_success','tower_impossible','tower_fixed_cube_fail'])
-    self.tower = tower
-
-  def execute(self, userdata):
-    sleep(1)
-     
-    rospy.loginfo('Executing state TRY_TOWER_FIXED_CUBE')
-
-    outcome = input("Enter outcome:")
-    return outcome
-
-# Define state TRY_TOWER_FREE_SPACE
-class TryTowerFreeSpace(smach.State):
-  def __init__(self, tower):
-    smach.State.__init__(self, outcomes=['tower_plan_success','fail'])
-    self.tower = tower
-
-  def execute(self, userdata):
-    sleep(1)
-     
-    rospy.loginfo('Executing state TRY_TOWER_FREE_SPACE')
-
-    outcome = input("Enter outcome:")
-    return outcome
 
 # Define state PRE_CHECK
 class PreCheck(smach.State):
@@ -201,18 +252,7 @@ def main():
     smach.StateMachine.add('INIT', Init(tower), transitions={'init_success':'SCAN'})
     smach.StateMachine.add('SCAN', Scan(tower), transitions={'tower_identified':'RESUME_TOWER','no_tower_identified':"PLAN_TOWER"})
     smach.StateMachine.add('RESUME_TOWER', ResumeTower(tower), transitions={'tower_plan_success':'PICK_AND_PLACE','fail':'fail'})
-
-    # Create a sub SMACH state machine (for planning the tower)
-    sm_sub_plan = smach.StateMachine(outcomes=['fail','tower_plan_success'])
-
-    with sm_sub_plan:
-
-      # Add states to container
-      smach.StateMachine.add('OCCUPIED_GRID',OccupiedGrid(tower), transitions={'grid_generated':"TRY_TOWER_FIXED_CUBE"})
-      smach.StateMachine.add('TRY_TOWER_FIXED_CUBE',TryTowerFixedCube(tower), transitions={'tower_impossible':'TRY_TOWER_FIXED_CUBE','tower_plan_success':'tower_plan_success','tower_fixed_cube_fail':"TRY_TOWER_FREE_SPACE"})
-      smach.StateMachine.add('TRY_TOWER_FREE_SPACE',TryTowerFreeSpace(tower), transitions={'fail':'fail', 'tower_plan_success':'tower_plan_success'})
-    
-    smach.StateMachine.add('PLAN_TOWER', sm_sub_plan, transitions={'tower_plan_success':"PICK_AND_PLACE",'fail':'fail'})
+    smach.StateMachine.add('PLAN_TOWER',PlanTower(tower), transitions={'fail':'fail', 'tower_plan_success':'PICK_AND_PLACE'})
 
     # Create a sub SMACH state machine (for building the tower)
     sm_sub_build = smach.StateMachine(outcomes=['scenario_changed','tower_built'])
