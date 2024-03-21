@@ -57,7 +57,6 @@ class PlanTower(smach.State):
     rospy.loginfo('Executing state PLAN TOWER')
 
     n_detected_cubes = int(rospy.get_param("num_cubes"))
-    desired_center = (0.5,0)
 
     
     cube_poses = []

@@ -286,6 +286,26 @@ class Tower():
         return placement_possible
 
 
+    def check_cubes_match(self, cubes_poses_before, cubes_poses_now):
+        cubes_match = True
+
+        for i in len(cubes_poses_before):
+            cube_pos_before = cubes_poses_before[i][:2] # Doesn't consider z coordinate for safety check
+
+            for j in len(cubes_poses_now):
+                cube_pos_now = cubes_poses_now[i][:2] # Doesn't consider z coordinate for safety check
+                if math.dist(cube_pos_now,cube_pose_before) > 0.02:
+                    print("----------- CUBE {} CHANGED PLACE! --------------".format(i))
+                    cubes_match = False
+                    break
+        
+        # If a different number of cubes are identified
+        if len(cubes_poses_before) != len(cubes_poses_now):
+            cubes_match = False
+
+        return cubes_match
+
+
     def collision_scene(self):
         # Creates collision scene for table and around the robot
         

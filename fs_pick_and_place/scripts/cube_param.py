@@ -16,11 +16,15 @@ def callback(data):
     
 def callback_cube_num(data):
     rospy.set_param("num_cubes",data.data)
+
+def callback_tower_state(data):
+    rospy.set_param("tower_state",data.data)
     
     
 def listener():
     rospy.init_node('listener', anonymous=True)
     rospy.Subscriber("num_cubes",String , callback_cube_num)
+    rospy.Subscriber("tower_state",String , callback_tower_state)
     rospy.Subscriber("cube_0_odom", Odometry, callback)
     rospy.Subscriber("cube_1_odom", Odometry, callback)
     rospy.Subscriber("cube_2_odom", Odometry, callback)

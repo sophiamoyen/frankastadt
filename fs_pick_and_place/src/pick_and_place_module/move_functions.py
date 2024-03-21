@@ -39,12 +39,16 @@ class PlanAndMove:
         rospy.sleep(2)
 
         # Close gripper
-        self.gripper.grasp(0.01, 0.01)
+        result_grasp = self.gripper.grasp(0.01, 0.01)
         rospy.sleep(2)
 
-        # Move end effector up so that it doesn't stumble on other cubes
-        move_group.go_to_pose_q_goal(*self.after_pick_pose)
-        rospy.sleep(2)
+        if result_grasp == True:
+            # Move end effector up so that it doesn't stumble on other cubes
+            move_group.go_to_pose_q_goal(*self.after_pick_pose)
+            rospy.sleep(2)
+
+        return result_grasp
+        
 
     def execute_place(self):
         move_group = self.moveit_control
