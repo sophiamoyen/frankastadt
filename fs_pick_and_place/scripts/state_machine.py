@@ -80,8 +80,54 @@ class ResumeTower(smach.State):
     sleep(1)
      
     rospy.loginfo('Executing state RESUME_TOWER')
+    # Checks cubes' poses and generated grid with occupied and free spots
+    free_pos, occupied_pos = self.tower.find_free_space(userdata.cubes_poses)
 
-    outcome = input("Enter outcome:")
+    # Plots occupancy grid
+    self.tower.plot_free_space(free_pos, 
+                               occupied_pos, 
+                               userdata.cubes_poses,
+                               userdata.cubes_yaws,
+                               userdata.cubes_ids)
+
+    # EDIT HERE GET FROM PERCEPTION (x,y)
+    center_pose_tower = self.tower.desired_place
+
+    print("================= Generating tower strucutre starting from {}:".format(center_pose_tower))
+    cubes_tower_pos = self.tower.creates_tower6_structure(center_pose_tower, orientation="horizontal")
+    print("================= Tower strucure generated:",cubes_tower_pos)
+      
+        
+    self.tower.plot_tower_place(free_pos, occupied_pos, userdata.cubes_poses, userdata.cubes_yaws, userdata.cubes_ids, cubes_tower_pos, tower_type=6)
+
+    # Getting Pick Poses
+    poses = userdata.cubes_poses.copy()
+    ids = userdata.cubes_ids.copy()
+
+    pick_poses = []
+    for i in range(len(cubes_tower_poses)):
+      tower_closest_cube, closest_cube_id = self.tower.find_closest_cube(poses, (center_pose_tower[0],center_pose_tower[1]), ids)
+      pick_poses.append([tower_closest_cube[0],tower_closest_cube[1],0.04,tower_closest_cube[2]])
+
+      ids.remove(closest_cube_id)
+      poses.remove(tower_closest_cube)
+
+    # Getting tower_state
+    tower_state = int(rospy.get_param("tower_state"))
+
+    pick_poses = pick_poses[:6-tower_state] # Gets only 3 closest cubes to build the tower
+    cubes_tower_pos = cubes_tower_pos[tower_state:]
+
+
+    print("=========== Place positions:",cubes_tower_pos)
+    print("=========== Pick positions:", pick_poses)
+
+    
+    userdata.cubes_poses_pick = pick_poses
+    userdata.cubes_poses_place = cubes_tower_pos
+    outcome = 'tower_plan_success'
+    
+
     return outcome
 
 
@@ -129,8 +175,8 @@ class PlanTower(smach.State):
         ids = userdata.cubes_ids.copy()
 
         pick_poses = []
-        for i in range(len(userdata.cubes_poses)):
-          tower_closest_cube, closest_cube_id = self.tower.find_closest_cube(poses, (closest_cube_pose[0],closest_cube_pose[1]), ids)
+        for i in range(len(cubes_tower_pos)):
+          tower_closest_cube, close_cube_id = self.tower.find_closest_cube(poses, (closest_cube_pose[0],closest_cube_pose[1]), ids)
           pick_poses.append([tower_closest_cube[0],tower_closest_cube[1],0.04,tower_closest_cube[2]])
 
           ids.remove(close_cube_id)
@@ -141,14 +187,15 @@ class PlanTower(smach.State):
         print("=========== Pick positions:", pick_poses)
 
         
-        userdata.pcubes_poses_pick = pick_poses
+        userdata.cubes_poses_pick = pick_poses
         userdata.cubes_poses_place = cubes_tower_pos
         outcome = 'tower_plan_success'
         break
 
-      ids.remove(close_cube_id)
-      poses.remove(closest_cube_pose)
-      yaws.pop(closest_cube_id)
+      else:
+        ids.remove(closest_cube_id)
+        poses.remove(closest_cube_pose)
+        yaws.pop(closest_cube_id)
 
     
     if placement_possible == False:
