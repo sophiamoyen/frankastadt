@@ -44,8 +44,14 @@ class Scan(smach.State):
     sleep(1)
     rospy.loginfo('Executing state SCAN')
 
+    # Going to standard pose
+    self.tower.plan_and_move.move_standard_pose()
+
     # Getting tower_state
-    tower_state = int(rospy.get_param("tower_state"))
+    sleep(5)
+
+    # Getting tower_state
+    tower_state = int(rospy.get_param("pyramid_state"))
 
     # Getting number of detected cubes
     num_cubes = int(rospy.get_param("num_cubes"))
@@ -57,10 +63,9 @@ class Scan(smach.State):
     userdata.cubes_poses = cubes_poses
     userdata.cubes_ids = cubes_ids
     userdata.cubes_yaws = cubes_yaws
-    userdata.cubes_yaws = cubes_yaws
     userdata.tower_state = tower_state
 
-    if tower_state==0:
+    if tower_state==1 or tower_state==0:
       outcome = 'no_tower_identified'
 
     else:
@@ -91,7 +96,7 @@ class ResumeTower(smach.State):
                                userdata.cubes_ids)
 
     # EDIT HERE GET FROM PERCEPTION (x,y)
-    center_pose_tower = self.tower.desired_place
+    center_pose_tower = (rospy.get_param("pyramid_x"),rospy.get_param("pyramid_y"))
 
     print("================= Generating tower strucutre starting from {}:".format(center_pose_tower))
     cubes_tower_pos = self.tower.creates_tower6_structure(center_pose_tower, orientation="horizontal")
@@ -105,18 +110,16 @@ class ResumeTower(smach.State):
     ids = userdata.cubes_ids.copy()
 
     pick_poses = []
-    for i in range(len(cubes_tower_poses)):
+    for i in range(len(cubes_tower_pos)):
       tower_closest_cube, closest_cube_id = self.tower.find_closest_cube(poses, (center_pose_tower[0],center_pose_tower[1]), ids)
       pick_poses.append([tower_closest_cube[0],tower_closest_cube[1],0.04,tower_closest_cube[2]])
 
       ids.remove(closest_cube_id)
       poses.remove(tower_closest_cube)
 
-    # Getting tower_state
-    tower_state = int(rospy.get_param("tower_state"))
 
-    pick_poses = pick_poses[:6-tower_state] # Gets only 3 closest cubes to build the tower
-    cubes_tower_pos = cubes_tower_pos[tower_state:]
+    pick_poses = pick_poses[:6-userdata.tower_state] # Gets only 3 closest cubes to build the tower
+    cubes_tower_pos = cubes_tower_pos[userdata.tower_state:]
 
 
     print("=========== Place positions:",cubes_tower_pos)
@@ -239,6 +242,7 @@ class PreCheck(smach.State):
       outcome = 'scenario_changed'
 
     else:
+      # DO!!! Substitute the cubes poses from the new scan
       outcome = 'pre_check_success'
 
     return outcome
@@ -258,7 +262,7 @@ class PickCube(smach.State):
     result_grasp = False
     picks_tried = 0
 
-    while result_grasp == False or picks_tried < 3:
+    while result_grasp == False and picks_tried < 3:
       # Set pick pose, gets first cube from the list
       pick_position = [userdata.cubes_poses_pick[0][0],userdata.cubes_poses_pick[0][1],0.0225]
       pick_orientation = userdata.cubes_poses_pick[0][3]
@@ -290,7 +294,8 @@ class PickCheck(smach.State):
     self.tower.plan_and_move.move_standard_pose()
 
     # Getting tower_state
-    tower_state = int(rospy.get_param("tower_state"))
+    sleep(12)
+    tower_state = int(rospy.get_param("pyramid_state"))
 
     if userdata.tower_state == tower_state:
       outcome = 'pick_check_success'
@@ -313,7 +318,7 @@ class ReturnCube(smach.State):
     rospy.loginfo('Executing state RETURN_CUBE')
     
     # Set place pose, gets first cube from the list
-    place_position = [userdata.cubes_poses_pick[0][0],userdata.cubes_poses_pick[0][1],0.0225]
+    place_position = [userdata.cubes_poses_pick[0][0],userdata.cubes_poses_pick[0][1],0.06]
     place_orientation = userdata.cubes_poses_pick[0][3]
     self.tower.plan_and_move.setPlacePose(*place_position,*place_orientation)
 
@@ -326,7 +331,7 @@ class ReturnCube(smach.State):
 # Define state PLACE_AND_CHECK
 class PlaceAndCheck(smach.State):
   def __init__(self, tower):
-    smach.State.__init__(self, outcomes=['tower_built','scenario_changed','next_pick'], input_kets=['cubes_poses_place','cubes_poses_pick','tower_state'],output_kets=['cubes_poses_place','cubes_poses_pick','tower_state'])
+    smach.State.__init__(self, outcomes=['tower_built','scenario_changed','next_pick'], input_keys=['cubes_poses_place','cubes_poses_pick','tower_state'],output_keys=['cubes_poses_place','cubes_poses_pick','tower_state'])
     self.tower = tower
 
   def execute(self, userdata):
@@ -340,7 +345,9 @@ class PlaceAndCheck(smach.State):
                                     -0.012313752255495124,
                                     0.0010650151882551477]
 
-    place_position = [*userdata.cubes_poses_place[0][:3]]
+    place_position = userdata.cubes_poses_place[0]
+    print("Place position:", place_position)
+    print("Set Place Pose:",[*place_position,*place_orientation_horizontal])
     self.tower.plan_and_move.setPlacePose(*place_position,*place_orientation_horizontal)
     # Execute place
     self.tower.plan_and_move.execute_place()
@@ -350,10 +357,11 @@ class PlaceAndCheck(smach.State):
     self.tower.plan_and_move.move_standard_pose()
 
     # Getting tower_state
-    tower_state = int(rospy.get_param("tower_state"))
+    sleep(5)
+    tower_state = int(rospy.get_param("pyramid_state"))
 
     if userdata.tower_state == tower_state:
-      if len(cubes_poses_pick) == 1:
+      if len(userdata.cubes_poses_pick) == 1:
         outcome = 'tower_built'
 
       else:
@@ -392,7 +400,7 @@ def main():
     smach.StateMachine.add('INIT', Init(tower), transitions={'init_success':'SCAN'})
     smach.StateMachine.add('SCAN', Scan(tower), transitions={'tower_identified':'RESUME_TOWER','no_tower_identified':"PLAN_TOWER"}, remapping={'cubes_poses':'cubes_poses','cubes_ids':'cubes_ids','cubes_yaws':'cubes_yaws','tower_state':'tower_state'})
     smach.StateMachine.add('RESUME_TOWER', ResumeTower(tower), transitions={'tower_plan_success':'PICK_AND_PLACE','fail':'fail'}, remapping={'cubes_poses':'cubes_poses','cubes_ids':'cubes_ids','cubes_yaws':'cubes_yaws','tower_state':'tower_state'})
-    smach.StateMachine.add('PLAN_TOWER',PlanTower(tower), transitions={'fail':'fail', 'tower_plan_success':'PICK_AND_PLACE'}, remapping={'cubes_poses':'cubes_poses','cubes_ids':'cubes_ids','cubes_yaws':'cubes_yaws','tower_state':'tower_state'})
+    smach.StateMachine.add('PLAN_TOWER',PlanTower(tower), transitions={'fail':'fail', 'tower_plan_success':'PICK_AND_PLACE'}, remapping={'cubes_poses':'cubes_poses','cubes_ids':'cubes_ids','cubes_yaws':'cubes_yaws','tower_state':'tower_state','cubes_poses_place':'cubes_poses_place'})
 
     # Create a sub SMACH state machine (for building the tower)
     sm_sub_build = smach.StateMachine(outcomes=['scenario_changed','tower_built'], input_keys=['cubes_poses_pick','cubes_poses_place','tower_state'])

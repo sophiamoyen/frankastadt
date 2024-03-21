@@ -18,13 +18,18 @@ def callback_cube_num(data):
     rospy.set_param("num_cubes",data.data)
 
 def callback_tower_state(data):
-    rospy.set_param("tower_state",data.data)
-    
+    rospy.set_param("pyramid_state",data.data)
+
+def callback_tower_odom(data):
+    rospy.set_param("pyramid_x",data.pose.pose.position.x)
+    rospy.set_param("pyramid_y",data.pose.pose.position.y)
+
     
 def listener():
     rospy.init_node('listener', anonymous=True)
     rospy.Subscriber("num_cubes",String , callback_cube_num)
-    rospy.Subscriber("tower_state",String , callback_tower_state)
+    rospy.Subscriber("pyramid_state",String , callback_tower_state)
+    rospy.Subscriber("pyramid_odom", Odometry, callback_tower_odom)
     rospy.Subscriber("cube_0_odom", Odometry, callback)
     rospy.Subscriber("cube_1_odom", Odometry, callback)
     rospy.Subscriber("cube_2_odom", Odometry, callback)

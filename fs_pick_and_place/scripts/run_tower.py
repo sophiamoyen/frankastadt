@@ -15,6 +15,7 @@ if __name__ == "__main__":
     cla = Tower()
 
     cla.plan_and_move.move_standard_pose()
+    """
     n_detected_cubes = int(rospy.get_param("num_cubes"))
     desired_center = (0.5,0)
 
@@ -90,3 +91,4 @@ if __name__ == "__main__":
         cla.stack(cubes_tower_pos[i],[pick_poses[i][0],pick_poses[i][1],0.0225],pick_poses[i][3])
 
     cla.plan_and_move.move_standard_pose()
+    """

@@ -22,11 +22,10 @@ def cluster_pc(pc, eps, min_points):
     Returns:
         labels (np.array): array of cluster labels
     '''
-
     with o3d.utility.VerbosityContextManager(
-            o3d.utility.VerbosityLevel.Debug) as cm:
+            o3d.utility.VerbosityLevel.Error) as cm:
             labels = np.array(
-                pc.cluster_dbscan(eps=eps, min_points=min_points, print_progress=True))
+                pc.cluster_dbscan(eps=eps, min_points=min_points, print_progress=False))
     return labels
 
 def create_cube_gt(edge_len):

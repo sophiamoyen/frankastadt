@@ -29,10 +29,10 @@ class Tower():
         for i in range(num_cubes):
             cube_pose = [rospy.get_param("cube_{}_x".format(i)),
                         rospy.get_param("cube_{}_y".format(i)),
-                        self.tower.convert_orientation(rospy.get_param("cube_{}_orient_z".format(i)))]
+                        self.convert_orientation(rospy.get_param("cube_{}_orient_z".format(i)))]
             cubes_yaws.append(rospy.get_param("cube_{}_orient_z".format(i)))
             cubes_poses.append(cube_pose)
-            cubes_ids.append(i)
+            cubes_ids.append(int(i))
         
         return cubes_poses, cubes_ids, cubes_yaws
 
@@ -114,14 +114,14 @@ class Tower():
         plt.legend(loc='upper right')
         plt.show()
 
-    def clears_space_for_tower(self, cubes_poses, cubes_yaws, cubes_ids, tower_base=3):
+    def clears_space_for_tower(self, cubes_poses, cubes_ids, cubes_yaws, tower_base=3):
         for i in range(min(tower_base,len(cubes_poses))):
             close_cube_pose, close_cube_id = self.find_closest_cube(cubes_poses, self.desired_center, cubes_ids)
-            print("========== Removed cube_{} from occupied space".format(closest_cube_id))
-
+            print("========== Removed cube_{} from occupied space".format(close_cube_id))
+            cube_id = cubes_ids.index(close_cube_id)
             cubes_ids.remove(close_cube_id)
             cubes_poses.remove(close_cube_pose)
-            cubes_yaws.pop(close_cube_id)
+            cubes_yaws.pop(cube_id)
 
             if i==0:
                 closest_cube_id = close_cube_id
@@ -129,7 +129,7 @@ class Tower():
 
         free_pos, occupied_pos = self.find_free_space(cubes_poses)
 
-        self.tower.plot_free_space(free_pos, 
+        self.plot_free_space(free_pos, 
                                     occupied_pos, 
                                     cubes_poses, 
                                     cubes_yaws,
@@ -260,11 +260,11 @@ class Tower():
                 cubes_tower_pos.append([desired_place[0],desired_place[1],rospy.get_param("cube_0_z")+0.15]) # Simulation
 
             else:
-                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.055,0.04]) # Real world
-                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.055,0.04]) # Real world
-                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.0275,0.1]) # Real world
-                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.0275,0.1]) # Real world
-                cubes_tower_pos.append([desired_place[0],desired_place[1],0.16]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.055,0.06]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.055,0.06]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.0275,0.12]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.0275,0.12]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1],0.18]) # Real world
 
         return(cubes_tower_pos) 
 
@@ -289,18 +289,32 @@ class Tower():
     def check_cubes_match(self, cubes_poses_before, cubes_poses_now):
         cubes_match = True
 
-        for i in len(cubes_poses_before):
-            cube_pos_before = cubes_poses_before[i][:2] # Doesn't consider z coordinate for safety check
+        print("Cubes Poses Before: ", cubes_poses_before)
+        print("Cubes Poses Now: ", cubes_poses_now)
 
-            for j in len(cubes_poses_now):
-                cube_pos_now = cubes_poses_now[i][:2] # Doesn't consider z coordinate for safety check
-                if math.dist(cube_pos_now,cube_pose_before) > 0.02:
-                    print("----------- CUBE {} CHANGED PLACE! --------------".format(i))
-                    cubes_match = False
+        for i in range(len(cubes_poses_before)):
+            cube_pos_before = cubes_poses_before[i][:2] 
+            print("Cube Pose Before: ", cube_pos_before)
+            cube_same = False
+
+            for j in range(len(cubes_poses_now)):
+                cube_pos_now = cubes_poses_now[j][:2] 
+                print("Cube Pose Now: ", cube_pos_now)
+
+                if math.dist(cube_pos_now,cube_pos_before) < 0.02:
+                    cube_same = True
                     break
+
+            if cube_same == False:
+                print("----------- CUBE {} CHANGED! --------------".format(i))
+                cubes_match = False
+                break
         
         # If a different number of cubes are identified
-        if len(cubes_poses_before) != len(cubes_poses_now):
+        if len(cubes_poses_before) > len(cubes_poses_now):
+            print("----------- DIFFERENT NUMBER OF CUBES DETECTED! --------------")
+            print("----------- before: {} --------------".format(len(cubes_poses_before)))
+            print("----------- now: {} --------------".format(len(cubes_poses_now)))
             cubes_match = False
 
         return cubes_match

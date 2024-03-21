@@ -182,7 +182,7 @@ class PCPerception():
                     #    continue
                     
 
-                    print(reg_p2p)
+                    #print(reg_p2p)
 
                     # Retrieve position and orientation from the transformation matrix TODO: Check transformation between raw_pos and pos
                     raw_pos = [reg_p2p.transformation[0, 3], reg_p2p.transformation[1, 3], reg_p2p.transformation[2, 3]]
@@ -196,12 +196,14 @@ class PCPerception():
                     cube_count += 1
 
                     # Remove the points within the radius of its diagonal
-                    cube = cube.select_by_index(np.where(np.linalg.norm(np.asarray(cube.points) - raw_pos, axis=1) > self.cube_diagonal+0.01)[0])
+                    cube = cube.select_by_index(np.where(np.linalg.norm(np.asarray(cube.points) - raw_pos, axis=1) > self.cube_diagonal+0.03)[0])
 
                     # Print the position and orientation
+                    """
                     print("Cube " + str(cube_count) + ":")
                     print(raw_pos)
                     print(rotation_matrix_to_euler_angles(rotation), "\n")
+                    """
                     self.first_perception_done = True
         
         # Assign colors to the segmented point clouds for the visualization

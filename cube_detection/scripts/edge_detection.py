@@ -26,7 +26,7 @@ else:
     # helps to eliminate noise on the table
     BLUR_SIZE = (27, 27)
     # to filter out the table depends on light conditions
-    BLACK_TABEL_THRESHOLD = 140
+    BLACK_TABEL_THRESHOLD = 152
     # threshold to decide weather detected cube is same as before
     MATCH_DISTANCE_THRESHOLD = 0.01
     # for deciding if contour is cube - outdated probably
@@ -83,7 +83,7 @@ class CubeDetector:
     def run_cube_detection(self):
          if self.cv_image is not None and self.depth_image is not None:
             try:
-                print("Running Cube detection")
+                #print("Running Cube detection")
                 self.debug_image = self.cv_image.copy()
                 
                 # theshold image
@@ -211,7 +211,7 @@ class CubeDetector:
                     #new_centroid_left, transformed_point_left, new_centroid_right, transformed_point_right = self.split_cubes(cx, cy, width, height, angle)
 
 
-        print("detected Cubes: ", len(detected_cubes))
+        #print("detected Cubes: ", len(detected_cubes))
         return detected_cubes    
 
     def split_cubes(self,cx, cy, width, height, angle):
@@ -223,7 +223,7 @@ class CubeDetector:
         if (width > height):
             move_distance = width / 4
 
-        print(angle)
+        #print(angle)
         
         # Calculate new centroid positions
         new_centroid_left = np.array([cx, cy]) - direction_vector * move_distance
@@ -291,7 +291,7 @@ class CubeDetector:
                 cube_odom.pose.pose.orientation.z = cube.rotation
                 cube_odom.pose.pose.orientation.w = 0
 
-                print("Publishing Cube {}: ({}, {}, {}) - {}".format(cube.id, round(cube.x, 3), round(cube.y, 3), round(cube.z, 3), round(cube.rotation, 3)))
+                #print("Publishing Cube {}: ({}, {}, {}) - {}".format(cube.id, round(cube.x, 3), round(cube.y, 3), round(cube.z, 3), round(cube.rotation, 3)))
                 cube_publisher = rospy.Publisher("cube_{}_odom_ed".format(cube.id), Odometry, queue_size=10)
                 cube_publisher.publish(cube_odom)
 

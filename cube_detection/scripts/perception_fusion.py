@@ -99,7 +99,7 @@ class CubeFusion:
         # Normalize the angle to be between 0 and 360 degrees (or 2*pi radians)
         angle = angle % 90
 
-        print("converted_angle",angle)
+        #print("converted_angle",angle)
         return angle * math.pi / 180  # Convert to radians if needed
 
     def match_closest_cube(self, cube_pc):
@@ -171,7 +171,7 @@ class CubeFusion:
 
     def publish_cubes(self):
         for cube in self.matched_cubes:
-            print("angle_",cube,":",cube.orientation)
+            print("Cube ",cube.id,": [",round(cube.x,3), ", ", round(cube.y,3), ", ", round(cube.z,3), ", ", cube.orientation, "]")
             cube_odom = Odometry()
             cube_odom.header.frame_id = "world"
             cube_odom.child_frame_id = "cube_{}".format(cube.id)
