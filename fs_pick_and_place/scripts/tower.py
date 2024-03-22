@@ -11,7 +11,7 @@ import matplotlib.patches as patches
 import sys
 
 class Tower():
-    def __init__(self, cube_size=0.045, lim_x=[0.10,0.80], lim_y=[-0.50,0.50], desired_center= [0.50,0],scenario="simulation"):
+    def __init__(self, cube_size=0.045, lim_x=[0.10,0.80], lim_y=[-0.50,0.50], desired_center= [0.50,0],scenario="real"):
         self.plan_and_move = PlanAndMove()
         self.cube_size = cube_size  # cm
         self.lim_y = lim_y
@@ -260,11 +260,11 @@ class Tower():
                 cubes_tower_pos.append([desired_place[0],desired_place[1],rospy.get_param("cube_0_z")+0.15]) # Simulation
 
             else:
-                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.055,0.06]) # Real world
-                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.055,0.06]) # Real world
-                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.0275,0.12]) # Real world
-                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.0275,0.12]) # Real world
-                cubes_tower_pos.append([desired_place[0],desired_place[1],0.18]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.055,0.04]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.055,0.04]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.0275,0.1]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.0275,0.1]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1],0.13]) # Real world
 
         return(cubes_tower_pos) 
 
@@ -301,7 +301,7 @@ class Tower():
                 cube_pos_now = cubes_poses_now[j][:2] 
                 print("Cube Pose Now: ", cube_pos_now)
 
-                if math.dist(cube_pos_now,cube_pos_before) < 0.02:
+                if math.dist(cube_pos_now,cube_pos_before) < 0.04:
                     cube_same = True
                     break
 

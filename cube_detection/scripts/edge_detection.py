@@ -26,7 +26,7 @@ else:
     # helps to eliminate noise on the table
     BLUR_SIZE = (27, 27)
     # to filter out the table depends on light conditions
-    BLACK_TABEL_THRESHOLD = 152
+    BLACK_TABEL_THRESHOLD = 157
     # threshold to decide weather detected cube is same as before
     MATCH_DISTANCE_THRESHOLD = 0.01
     # for deciding if contour is cube - outdated probably
