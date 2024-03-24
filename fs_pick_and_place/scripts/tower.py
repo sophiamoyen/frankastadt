@@ -273,11 +273,11 @@ class Tower():
                 cubes_tower_pos.append([desired_place[0],desired_place[1],rospy.get_param("cube_0_z")+0.15]) # Simulation
 
             else:
-                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.055,0.04]) # Real world
-                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.055,0.04]) # Real world
-                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.0275,0.1]) # Real world
-                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.0275,0.1]) # Real world
-                cubes_tower_pos.append([desired_place[0],desired_place[1],0.13]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.055,0.034]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.055,0.034]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.0275,0.094]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.0275,0.094]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1],0.124]) # Real world
 
         return(cubes_tower_pos) 
 

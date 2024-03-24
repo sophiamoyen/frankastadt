@@ -65,6 +65,7 @@ class Scan(smach.State):
     userdata.cubes_ids = cubes_ids
     userdata.cubes_yaws = cubes_yaws
     userdata.tower_state = tower_state
+    print("Pyramid state estimation: ", tower_state)
 
     if tower_state==1 or tower_state==0:
       outcome = 'no_tower_identified'
