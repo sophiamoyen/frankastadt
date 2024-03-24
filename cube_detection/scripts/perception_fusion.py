@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 import rospy
 from nav_msgs.msg import Odometry
+from std_msgs.msg import String
 
 import numpy as np
 import math
 
 DISTANCE_THRESHOLD = 0.05
-NUM_OF_CUBES = int(rospy.get_param("num_cubes"))
+#NUM_OF_CUBES = int(rospy.get_param("num_cubes"))
 PREV_CUBE_MATCH_DISTANCE = 0.05
 
 class Cube:
@@ -27,11 +28,32 @@ class CubeFusion:
         self.matched_cubes = []
         self.prev_cubes = []
 
-        for cube_num in range(NUM_OF_CUBES):
-            self.cube_pc_subscriber = rospy.Subscriber("cube_{}_odom_pc".format(cube_num), Odometry, self.callbackPC)
-            self.cube_ed_subscriber = rospy.Subscriber("cube_{}_odom_ed".format(cube_num), Odometry, self.callbackED)
+        self.num_cubes_subscriber = rospy.Subscriber("num_cubes", String, self.callback_num_cubes)
+        self.num_of_cubes = int(rospy.get_param("num_cubes"))
+
+        self.cube_ed_subscriber = []
+        self.cube_pc_subscriber = []
+
+        for cube_num in range(self.num_of_cubes):
+            self.cube_pc_subscriber.append(rospy.Subscriber("cube_{}_odom_pc".format(cube_num), Odometry, self.callbackPC))
+            self.cube_ed_subscriber.append(rospy.Subscriber("cube_{}_odom_ed".format(cube_num), Odometry, self.callbackED))
+
+    def callback_num_cubes(self, data):
+        if int(data.data) != self.num_of_cubes:
+            self.num_of_cubes = int(data.data)
+            for i in range(len(self.cube_pc_subscriber)):
+                #self.cube_pc_subscriber = rospy.Subscriber("cube_{}_odom_pc".format(self.num_of_cubes -1), Odometry, self.callbackPC)
+                #self.cube_ed_subscriber = rospy.Subscriber("cube_{}_odom_ed".format(self.num_of_cubes -1), Odometry, self.callbackED)
+                self.cube_pc_subscriber[i].unregister()
+                self.cube_ed_subscriber[i].unregister()
+            self.cube_pc_subscriber.clear()
+            self.cube_ed_subscriber.clear()
+            for j in range(self.num_of_cubes):
+                self.cube_pc_subscriber.append(rospy.Subscriber("cube_{}_odom_pc".format(j), Odometry, self.callbackPC))
+                self.cube_ed_subscriber.append(rospy.Subscriber("cube_{}_odom_ed".format(j), Odometry, self.callbackED))
 
     def callbackPC(self, data):
+        #NUM_OF_CUBES = int(rospy.get_param("num_cubes"))
         id = data.child_frame_id[-1]
         #rospy.loginfo("PC "+ id)
 
@@ -43,10 +65,11 @@ class CubeFusion:
 
         self.run_matching()
 
-        if (len(self.cubes_pc) > NUM_OF_CUBES):
+        if (len(self.cubes_pc) > self.num_of_cubes):
             self.cubes_pc.clear()
 
     def callbackED(self, data):
+        #NUM_OF_CUBES = int(rospy.get_param("num_cubes"))
         id = data.child_frame_id[-1]
         #rospy.loginfo("ED "+ id)
 
@@ -59,12 +82,12 @@ class CubeFusion:
 
         self.run_matching()
         
-        if (len(self.cubes_ed) > NUM_OF_CUBES):
+        if (len(self.cubes_ed) > self.num_of_cubes):
             self.cubes_ed.clear()
     
 
     def run_matching(self):
-        if len(self.cubes_pc) == NUM_OF_CUBES and len(self.cubes_ed) == NUM_OF_CUBES:
+        if len(self.cubes_pc) == self.num_of_cubes and len(self.cubes_ed) == self.num_of_cubes:
             rospy.loginfo("Performing cube matching...")
 
             for cube_pc in self.cubes_pc:
