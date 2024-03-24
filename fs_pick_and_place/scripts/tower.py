@@ -27,10 +27,10 @@ class Tower():
         cubes_ids = []
 
         if tower_state>1:
-            tower_up_x = center_pose_tower+0.0275
-            tower_down_x = center_pose_tower-0.0275
-            tower_left_y = center_pose_tower+0.0725
-            tower_right_y = center_pose_tower-0.0725
+            tower_up_x = center_pose_tower[0]+0.0275
+            tower_down_x = center_pose_tower[0]-0.0275
+            tower_left_y = center_pose_tower[1]+0.0725
+            tower_right_y = center_pose_tower[1]-0.0725
 
         for i in range(num_cubes):
             cube_pose = [rospy.get_param("cube_{}_x".format(i)),
