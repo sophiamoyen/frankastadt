@@ -111,7 +111,7 @@ class ResumeTower(smach.State):
     ids = userdata.cubes_ids.copy()
 
     pick_poses = []
-    for i in range(len(cubes_tower_pos)):
+    for i in range(6-userdata.tower_state):
       tower_closest_cube, closest_cube_id = self.tower.find_closest_cube(poses, (center_pose_tower[0],center_pose_tower[1]), ids)
       pick_poses.append([tower_closest_cube[0],tower_closest_cube[1],0.04,tower_closest_cube[2]])
 
@@ -119,7 +119,7 @@ class ResumeTower(smach.State):
       poses.remove(tower_closest_cube)
 
 
-    pick_poses = pick_poses[:6-userdata.tower_state] # Gets only 3 closest cubes to build the tower
+    pick_poses = pick_poses
     cubes_tower_pos = cubes_tower_pos[userdata.tower_state:]
 
 
