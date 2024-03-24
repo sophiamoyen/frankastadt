@@ -22,7 +22,7 @@ class PCPerception():
     def __init__(self):
 
         # Set the work environment
-        self.work_environment = "real"
+        self.work_environment = "gazebo"
 
         # Additional parameters
         self.cube_diagonal = 0.0389
@@ -217,15 +217,14 @@ class PCPerception():
         #colors[labels < 0] = 0
         #outlier_cloud.colors = o3d.utility.Vector3dVector(colors[:, :3])
         #pcd_ros = o3dpc_to_rospc(outlier_cloud, msg.header, msg.fields, frame_id=self.world_frame)
-        print(positions)
+        #print(positions)
         self.num_of_cubes_pub.publish(str(cube_count))
         #self.pub.publish(pcd_ros)
     
 
 if __name__ == '__main__':
 
-    rospy.init_node('pc_perception_node')
-    print("started pointcloud perception node")
+    rospy.init_node('pyramid_checking_node')
 
     pc_perception = PCPerception()
 

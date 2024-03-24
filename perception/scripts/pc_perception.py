@@ -22,7 +22,7 @@ class PCPerception():
     def __init__(self):
 
         # Set the work environment
-        self.work_environment = "real"
+        self.work_environment = "gazebo"
         self.using_icp = True
         self.single_perception = False
         self.first_perception_done = False
@@ -34,8 +34,13 @@ class PCPerception():
 
         # Create a cube for ground truth
         self.cube_gt = create_cube_gt(self.edge_len)
+        self.pyramid_odom = None
+        self.pyramid_state = 0
         #self.cube_gt = create_pyramid_gt(3, 5, 0.045)
         #self.cube_gt.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
+
+        self.pyramid_subscriber = "/pyramid_odom"
+        self.pyramid_state_subscriber = "/pyramid_state"
 
         # Set the parameter for simulation or real world
         if self.work_environment == "gazebo":
@@ -74,9 +79,6 @@ class PCPerception():
         for i in range(self.number_of_cubes):
             self.cube_publisher[i] = rospy.Publisher('cube_{}_odom_pc'.format(i), Odometry, queue_size=10)
     
-    #def perform_icp(self, source, target):
-        
-    
     def publish_odometry(self, pos, rot, frame_id, child_frame_id, index):
         '''
         Publish the odometry of the cubes
@@ -99,7 +101,13 @@ class PCPerception():
         cube_odom.pose.pose.orientation.z = rot[2]
         cube_odom.pose.pose.orientation.w = rot[3]
         self.cube_publisher[index].publish(cube_odom)
-
+    
+    def pyramid_callback(self, msg):
+        self.pyramid_odom = msg.pose.pose.position
+    
+    def pyramid_state_callback(self, msg):
+        self.pyramid_state = int(msg.data)
+        
     # Downsampling, filtering, segmentation and clustering http://www.open3d.org/docs/latest/tutorial/Basic/pointcloud.html
     def pointcloud_callback(self, msg):
         '''
@@ -107,13 +115,9 @@ class PCPerception():
         Args:
             msg (sensor_msgs.msg.PointCloud2): point cloud message
         '''
-        
         # Call the transformation to world frame
         transformed_pc = transform_pointcloud(msg, self.world_frame)
         if transformed_pc is None:
-            return
-
-        if self.single_perception and self.first_perception_done:
             return
 
         # Voxel downsampling
@@ -143,6 +147,11 @@ class PCPerception():
         for i in range(max_label + 1):
             #print(f"Cluster {i}: {np.count_nonzero(labels == i)} points")
             cube = outlier_cloud.select_by_index(np.where(labels == i)[0])
+            print(cube.get_center())
+            print(self.pyramid_odom.x, self.pyramid_odom.y)
+            if self.pyramid_odom is not None:
+                if np.abs(cube.get_center()[0] - self.pyramid_odom.x) < 0.0225 and np.abs(cube.get_center()[1] - self.pyramid_odom.y) < 0.1:
+                    continue
 
             '''
             if not self.using_icp or np.asarray(cube.points).shape[0] < self.icp_min_points:
@@ -234,5 +243,7 @@ if __name__ == '__main__':
                                   up=[-0.0694, -0.9768, 0.2024])
     """
     rospy.Subscriber(pc_perception.subscriber_node, PointCloud2, pc_perception.pointcloud_callback)
+    rospy.Subscriber(pc_perception.pyramid_subscriber, Odometry, pc_perception.pyramid_callback)
+    rospy.Subscriber(pc_perception.pyramid_state_subscriber, String, pc_perception.pyramid_state_callback)
 
     rospy.spin()
