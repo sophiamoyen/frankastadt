@@ -169,9 +169,9 @@ class PCPerception():
                             break
                     elif j == 0 and len(positions) == 0 and not base_detected:
                         #print(len(cube.points))
-                        if len(cube.points) > 450:
+                        if len(cube.points) > 420:
                             cube_count = 3
-                            odom = np.array(cube.get_center()) + np.array([0.01, -0.01, 0])
+                            odom = np.array(cube.get_center()) + np.array([0, 0.015, 0])
                             break
                         elif len(cube.points) > 300:
                             cube_count = 2

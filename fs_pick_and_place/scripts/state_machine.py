@@ -48,7 +48,7 @@ class Scan(smach.State):
     self.tower.plan_and_move.move_standard_pose()
 
     # Getting tower_state
-    sleep(10)
+    sleep(7)
 
     # Getting tower_state
     tower_state = int(rospy.get_param("pyramid_state"))
@@ -70,8 +70,10 @@ class Scan(smach.State):
 
     if tower_state==1 or tower_state==0:
       outcome = 'no_tower_identified'
+      self.tower.popup("Scan","No tower identified")
 
     else:
+      self.tower.popup("Scan","Tower of {} cubes identified with center at {}".format(tower_state, center_pose_tower))
       outcome = 'tower_identified'
       
       
@@ -215,7 +217,7 @@ class PlanTower(smach.State):
 
 
 # Define state PRE_CHECK
-class PreCheck(smach.State):
+class CubesCheck(smach.State):
   def __init__(self, tower):
     smach.State.__init__(self, outcomes=['pre_check_success','scenario_changed'], input_keys=['cubes_poses_pick'])
     self.tower = tower
@@ -223,7 +225,7 @@ class PreCheck(smach.State):
   def execute(self, userdata):
     sleep(1)
      
-    rospy.loginfo('Executing state PRE_CHECK')
+    rospy.loginfo('Executing state CUBES_CHECK')
 
     # Getting number of detected cubes
     num_cubes = int(rospy.get_param("num_cubes"))
@@ -249,6 +251,7 @@ class PreCheck(smach.State):
     cubes_match = self.tower.check_cubes_match(userdata.cubes_poses_pick,cubes_poses)
 
     if cubes_match == False:
+      self.tower.popup("Scenario Changed","Cubes poses don't match.")
       outcome = 'scenario_changed'
 
     else:
@@ -284,14 +287,14 @@ class PickCube(smach.State):
 
     if result_grasp == True:
       outcome = 'pick_success'
-    
     else:
       outcome = 'scenario_changed'
+      self.tower.popup("Scenario Changed","Cube was not where it should -> Pick Failed.")
 
     return outcome
 
-# Define state PICK_CHECK
-class PickCheck(smach.State):
+# Define state TOWER_CHECK
+class TowerCheck(smach.State):
   def __init__(self, tower):
     smach.State.__init__(self, outcomes=['pick_check_success','scenario_changed'],input_keys=['tower_state'])
     self.tower = tower
@@ -299,19 +302,20 @@ class PickCheck(smach.State):
   def execute(self, userdata):
     sleep(1)
      
-    rospy.loginfo('Executing state PICK_CHECK')
+    rospy.loginfo('Executing state TOWER_CHECK')
     # Going to standard pose
     self.tower.plan_and_move.move_standard_pose()
 
     # Getting tower_state
-    sleep(12)
+    sleep(7)
     tower_state = int(rospy.get_param("pyramid_state"))
 
-    if userdata.tower_state == tower_state:
+    if userdata.tower_state == tower_state or (userdata.tower_state < 2 and tower_state < 2):
       outcome = 'pick_check_success'
 
     else:
       outcome = 'scenario_changed'
+      self.tower.popup("Scenario Changed","Tower looks different. Expected {} cubes and got {}".format(userdata.tower_state, tower_state))
 
     return outcome
 
@@ -372,19 +376,24 @@ class PlaceAndCheck(smach.State):
 
     print("Estimated pyramid state: ", tower_state)
 
-    if userdata.tower_state == tower_state:
-      if len(userdata.cubes_poses_pick) == 1:
+    userdata.cubes_poses_place.pop(0)
+    userdata.cubes_poses_pick.pop(0)
+
+    print("Expected Tower State: ", userdata.tower_state)
+    print("Perceived Tower State: ", tower_state)
+    userdata.tower_state = userdata.tower_state + 1
+
+    if userdata.tower_state == tower_state or (userdata.tower_state < 2 and tower_state < 2):
+      if tower_state == 6:
         outcome = 'tower_built'
 
       else:
         outcome = 'next_pick'
 
-        userdata.cubes_poses_place.pop(0)
-        userdata.cubes_poses_pick.pop(0)
-        userdata.tower_state = tower_state+1
 
 
     else:
+      self.tower.popup("Scenario Changed","Tower looks different. Expected {} cubes and got {}".format(userdata.tower_state, tower_state))
       outcome = 'scenario_changed'
     
     return outcome
@@ -421,9 +430,9 @@ def main():
     with sm_sub_build:
 
       # Add states to container
-      smach.StateMachine.add('PRE_CHECK',PreCheck(tower), transitions={'pre_check_success':"PICK_CUBE",'scenario_changed':'scenario_changed'}, remapping={'cubes_poses_pick':'cubes_poses_pick'})
-      smach.StateMachine.add('PICK_CUBE',PickCube(tower), transitions={'pick_success':'PICK_CHECK','scenario_changed':"scenario_changed"},remapping={'cubes_poses_pick':'cubes_poses_pick'})
-      smach.StateMachine.add('PICK_CHECK',PickCheck(tower), transitions={'pick_check_success':'PLACE_AND_CHECK', 'scenario_changed':'RETURN_CUBE'},remapping={'tower_state':'tower_state'})
+      smach.StateMachine.add('CUBES_CHECK',CubesCheck(tower), transitions={'pre_check_success':"PICK_CUBE",'scenario_changed':'scenario_changed'}, remapping={'cubes_poses_pick':'cubes_poses_pick'})
+      smach.StateMachine.add('PICK_CUBE',PickCube(tower), transitions={'pick_success':'TOWER_CHECK','scenario_changed':"scenario_changed"},remapping={'cubes_poses_pick':'cubes_poses_pick'})
+      smach.StateMachine.add('TOWER_CHECK',TowerCheck(tower), transitions={'pick_check_success':'PLACE_AND_CHECK', 'scenario_changed':'RETURN_CUBE'},remapping={'tower_state':'tower_state'})
       smach.StateMachine.add('RETURN_CUBE',ReturnCube(tower), transitions={'cube_returned':'scenario_changed'},remapping={'cubes_poses_pick':'cubes_poses_pick'})
       smach.StateMachine.add('PLACE_AND_CHECK',PlaceAndCheck(tower), transitions={'next_pick':'PICK_CUBE','tower_built':'tower_built', 'scenario_changed':'scenario_changed'}, remapping={'cubes_poses_pick':'cubes_poses_pick','cubes_poses_place':'cubes_poses_place','tower_state':'tower_state'})
     

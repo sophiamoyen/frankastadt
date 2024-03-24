@@ -280,8 +280,8 @@ class Tower():
             else:
                 cubes_tower_pos.append([desired_place[0],desired_place[1]+0.055,0.034]) # Real world
                 cubes_tower_pos.append([desired_place[0],desired_place[1]-0.055,0.034]) # Real world
-                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.0275,0.088]) # Real world
-                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.0275,0.088]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.0275,0.079]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.0275,0.079]) # Real world
                 cubes_tower_pos.append([desired_place[0],desired_place[1],0.124]) # Real world
 
         return(cubes_tower_pos) 
@@ -400,7 +400,7 @@ class Tower():
 
         return pick_orientation
     
-    def popup(title="", sentence=""):
+    def popup(self, title="", sentence=""):
 
         tk.Tk().withdraw()
         messagebox.showinfo(title=title, message=sentence)
