@@ -307,7 +307,7 @@ class PickCheck(smach.State):
     sleep(12)
     tower_state = int(rospy.get_param("pyramid_state"))
 
-    if userdata.tower_state == tower_state or userdata.tower_state == tower_state + 1:
+    if userdata.tower_state == tower_state:
       outcome = 'pick_check_success'
 
     else:
@@ -372,7 +372,7 @@ class PlaceAndCheck(smach.State):
 
     print("Estimated pyramid state: ", tower_state)
 
-    if userdata.tower_state == tower_state or userdata.tower_state == tower_state+1 :
+    if userdata.tower_state == tower_state:
       if len(userdata.cubes_poses_pick) == 1:
         outcome = 'tower_built'
 

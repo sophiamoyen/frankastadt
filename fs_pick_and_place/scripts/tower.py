@@ -11,7 +11,7 @@ import matplotlib.patches as patches
 import sys
 
 class Tower():
-    def __init__(self, cube_size=0.045, lim_x=[0.10,0.80], lim_y=[-0.50,0.50], desired_center= [0.50,0],scenario="real"):
+    def __init__(self, cube_size=0.045, lim_x=[0.10,0.80], lim_y=[-0.50,0.50], desired_center= [0.55,0],scenario="real"):
         self.plan_and_move = PlanAndMove()
         self.cube_size = cube_size  # cm
         self.lim_y = lim_y
@@ -278,8 +278,8 @@ class Tower():
             else:
                 cubes_tower_pos.append([desired_place[0],desired_place[1]+0.055,0.034]) # Real world
                 cubes_tower_pos.append([desired_place[0],desired_place[1]-0.055,0.034]) # Real world
-                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.0275,0.094]) # Real world
-                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.0275,0.094]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]+0.0275,0.088]) # Real world
+                cubes_tower_pos.append([desired_place[0],desired_place[1]-0.0275,0.088]) # Real world
                 cubes_tower_pos.append([desired_place[0],desired_place[1],0.124]) # Real world
 
         return(cubes_tower_pos) 
