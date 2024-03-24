@@ -204,7 +204,7 @@ class CubeDetector:
                     cv2.drawContours(mask, [contour], -1, color=255, thickness=cv2.FILLED)
                     cv2.drawContours(self.debug_image,[box],0,(255,255,0),2)
                     cv2.circle(self.debug_image, (cx, cy), 5, (0, 255, 0), -1)
-                    text = f"Cube unsure: {cube_count}, Area: {area}, Convex: {convexity}, Angle: {angle}"
+                    text = f"Multiple Cubes {cube_count}: (" + str(round(transformed_point.point.x, 2)) + ", " + str(round(transformed_point.point.y, 2)) + ") angle: " + str(round(angle,2))
                     cv2.putText(self.debug_image, text, (cx- 250, cy -10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 2)
                     cube_count += 1
 

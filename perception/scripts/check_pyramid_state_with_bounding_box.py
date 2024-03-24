@@ -173,7 +173,7 @@ class PCPerception():
                             cube_count = 3
                             odom = np.array(cube.get_center()) + np.array([0, 0.015, 0])
                             break
-                        elif len(cube.points) > 300:
+                        elif len(cube.points) > 350:
                             cube_count = 2
                             odom = np.array(cube.get_center()) - np.array([0, 0.0225, 0])
                             print(odom)

@@ -307,7 +307,7 @@ class TowerCheck(smach.State):
     self.tower.plan_and_move.move_standard_pose()
 
     # Getting tower_state
-    sleep(7)
+    sleep(9)
     tower_state = int(rospy.get_param("pyramid_state"))
 
     if userdata.tower_state == tower_state or (userdata.tower_state < 2 and tower_state < 2):
@@ -371,7 +371,7 @@ class PlaceAndCheck(smach.State):
     self.tower.plan_and_move.move_standard_pose()
 
     # Getting tower_state
-    sleep(5)
+    sleep(10)
     tower_state = int(rospy.get_param("pyramid_state"))
 
     print("Estimated pyramid state: ", tower_state)
