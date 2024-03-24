@@ -6,7 +6,7 @@ from std_msgs.msg import String
 def callback(data):
     #index=data.child_frame_id[-1]
     index=data.child_frame_id.split("_")[-1]
-    print("Index of cube: ",index)
+    #print("Index of cube: ",index)
     rospy.set_param("cube_"+str(index)+"_x",data.pose.pose.position.x)
     rospy.set_param("cube_"+str(index)+"_y",data.pose.pose.position.y)
     rospy.set_param("cube_"+str(index)+"_z",data.pose.pose.position.z)
@@ -40,8 +40,8 @@ def listener():
     rospy.Subscriber("cube_6_odom", Odometry, callback)
     rospy.Subscriber("cube_7_odom", Odometry, callback)
     rospy.Subscriber("cube_8_odom", Odometry, callback)
-    rospy.Subscriber("cube_9_odom", Odometry, callback)
     """
+    rospy.Subscriber("cube_9_odom", Odometry, callback)
     rospy.Subscriber("cube_10_odom", Odometry, callback)
     rospy.Subscriber("cube_11_odom", Odometry, callback)
     rospy.Subscriber("cube_12_odom", Odometry, callback)

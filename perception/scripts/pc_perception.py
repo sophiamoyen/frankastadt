@@ -206,11 +206,11 @@ class PCPerception():
                     cube = cube.select_by_index(np.where(np.linalg.norm(np.asarray(cube.points) - raw_pos, axis=1) > self.cube_diagonal+0.03)[0])
 
                     # Print the position and orientation
-                    """
+                    
                     print("Cube " + str(cube_count) + ":")
                     print(raw_pos)
                     print(rotation_matrix_to_euler_angles(rotation), "\n")
-                    """
+                    
                     self.first_perception_done = True
         
         # Assign colors to the segmented point clouds for the visualization

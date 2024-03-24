@@ -1,5 +1,4 @@
 <launch>
-  <node name="pc_perception" pkg="perception" type="pc_perception.py" output="screen"></node>
   <node name="cube_param" pkg="fs_pick_and_place" type="cube_param.py" output="screen"></node>
   <node name="edge" pkg="cube_detection" type="edge_detection.py" output="screen"></node>
   <node name="fusion" pkg="cube_detection" type="perception_fusion.py" output="screen"></node>

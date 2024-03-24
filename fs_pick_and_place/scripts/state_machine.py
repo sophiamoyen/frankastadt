@@ -162,9 +162,11 @@ class PlanTower(smach.State):
     ids = userdata.cubes_ids.copy()
     yaws = userdata.cubes_yaws.copy()
 
+    print("Cube IDs before: ", ids)
+
     for index in userdata.cubes_ids:
       free_pos, occupied_pos, closest_cube_id, closest_cube_pose, cubes_poses_except_base, cubes_yaws_except_base, cubes_ids_except_base = self.tower.clears_space_for_tower(poses, ids, yaws, tower_base=3)
-        
+      print("Closest cube: ", closest_cube_id)
       print("================= Generating tower strucutre starting from cube_{}:".format(closest_cube_id), closest_cube_pose)
       cubes_tower_pos = self.tower.creates_tower6_structure(closest_cube_pose[:2], orientation="horizontal")
       print("================= Tower strucure generated:",cubes_tower_pos)
@@ -172,7 +174,6 @@ class PlanTower(smach.State):
       print("================= Placement possible:",placement_possible)
       
       if placement_possible == True:
-        
         self.tower.plot_tower_place(free_pos, occupied_pos, cubes_poses_except_base, cubes_yaws_except_base, cubes_ids_except_base, cubes_tower_pos, tower_type=6)
 
         # Getting Pick Poses
@@ -199,6 +200,7 @@ class PlanTower(smach.State):
         break
 
       else:
+        print("cube ids: ", ids)
         cube_id = ids.index(closest_cube_id)
         ids.remove(closest_cube_id)
         poses.remove(closest_cube_pose)
@@ -367,6 +369,8 @@ class PlaceAndCheck(smach.State):
     # Getting tower_state
     sleep(5)
     tower_state = int(rospy.get_param("pyramid_state"))
+
+    print("Estimated pyramid state: ", tower_state)
 
     if userdata.tower_state == tower_state or userdata.tower_state == tower_state+1 :
       if len(userdata.cubes_poses_pick) == 1:

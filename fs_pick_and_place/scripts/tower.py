@@ -128,27 +128,30 @@ class Tower():
         plt.show()
 
     def clears_space_for_tower(self, cubes_poses, cubes_ids, cubes_yaws, tower_base=3):
+        cubes_poses_copy = cubes_poses.copy()
+        cubes_ids_copy = cubes_ids.copy()
+        cubes_yaws_copy = cubes_yaws.copy()
         for i in range(min(tower_base,len(cubes_poses))):
-            close_cube_pose, close_cube_id = self.find_closest_cube(cubes_poses, self.desired_center, cubes_ids)
+            close_cube_pose, close_cube_id = self.find_closest_cube(cubes_poses_copy, self.desired_center, cubes_ids_copy)
             print("========== Removed cube_{} from occupied space".format(close_cube_id))
-            cube_id = cubes_ids.index(close_cube_id)
-            cubes_ids.remove(close_cube_id)
-            cubes_poses.remove(close_cube_pose)
-            cubes_yaws.pop(cube_id)
+            cube_id = cubes_ids_copy.index(close_cube_id)
+            cubes_ids_copy.remove(close_cube_id)
+            cubes_poses_copy.remove(close_cube_pose)
+            cubes_yaws_copy.pop(cube_id)
 
             if i==0:
                 closest_cube_id = close_cube_id
                 closest_cube_pose = close_cube_pose
 
-        free_pos, occupied_pos = self.find_free_space(cubes_poses)
+        free_pos, occupied_pos = self.find_free_space(cubes_poses_copy)
 
         self.plot_free_space(free_pos, 
                                     occupied_pos, 
-                                    cubes_poses, 
-                                    cubes_yaws,
-                                    cubes_ids)
+                                    cubes_poses_copy, 
+                                    cubes_yaws_copy,
+                                    cubes_ids_copy)
 
-        return free_pos, occupied_pos, closest_cube_id, closest_cube_pose, cubes_poses, cubes_yaws, cubes_ids
+        return free_pos, occupied_pos, closest_cube_id, closest_cube_pose, cubes_poses_copy, cubes_yaws_copy, cubes_ids_copy
     
 
     def plot_tower_place(self, free_positions, impossible_positions, cube_poses, cube_yaws, 
@@ -243,7 +246,7 @@ class Tower():
         if self.scenario == "simulation":
             desired_place = [*desired_place,rospy.get_param("cube_0_z")]
         else:
-            desired_place = [*desired_place,0.04] # Real world
+            desired_place = [*desired_place,0.034] # Real world
 
         # Create list of poses for cubes in tower
         cubes_tower_pos = [desired_place]
