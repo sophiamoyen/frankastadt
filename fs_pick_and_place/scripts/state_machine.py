@@ -48,16 +48,17 @@ class Scan(smach.State):
     self.tower.plan_and_move.move_standard_pose()
 
     # Getting tower_state
-    sleep(5)
+    sleep(10)
 
     # Getting tower_state
     tower_state = int(rospy.get_param("pyramid_state"))
+    center_pose_tower = (rospy.get_param("pyramid_x"),rospy.get_param("pyramid_y"))
 
     # Getting number of detected cubes
     num_cubes = int(rospy.get_param("num_cubes"))
 
     # Getting the poses of the detected cubes in a list
-    cubes_poses, cubes_ids, cubes_yaws = self.tower.get_detected_cubes(num_cubes)
+    cubes_poses, cubes_ids, cubes_yaws = self.tower.get_detected_cubes(num_cubes, center_pose_tower, tower_state)
 
     # Outputs data flow for the state machine
     userdata.cubes_poses = cubes_poses
@@ -223,8 +224,12 @@ class PreCheck(smach.State):
     # Getting number of detected cubes
     num_cubes = int(rospy.get_param("num_cubes"))
 
+    # Getting tower_state
+    tower_state = int(rospy.get_param("pyramid_state"))
+    center_pose_tower = (rospy.get_param("pyramid_x"),rospy.get_param("pyramid_y"))
+
     # Getting the poses of the detected cubes in a list
-    cubes_poses, cubes_ids, cubes_yaws = self.tower.get_detected_cubes(num_cubes)
+    cubes_poses, cubes_ids, cubes_yaws = self.tower.get_detected_cubes(num_cubes, center_pose_tower, tower_state)
 
     # Checks cubes' poses and generated grid with occupied and free spots
     free_pos_general, occupied_pos_general = self.tower.find_free_space(cubes_poses)
