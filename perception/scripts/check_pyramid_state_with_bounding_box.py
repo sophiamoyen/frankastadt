@@ -22,7 +22,7 @@ class PCPerception():
     def __init__(self):
 
         # Set the work environment
-        self.work_environment = "gazebo"
+        self.work_environment = "real"
 
         # Additional parameters
         self.cube_diagonal = 0.0389
@@ -130,16 +130,20 @@ class PCPerception():
             max_label = labels.max()
             layer = 0
             base_candidates = []
+            odom = [0,0,0]
             
             # Determine center and rotation of each cluster
             for i in range(max_label + 1):
                 #print(f"Cluster {i}: {np.count_nonzero(labels == i)} points")
                 cube = outlier_cloud.select_by_index(np.where(labels == i)[0])
+                #print(len(cube.points))
 
                 # Perform ICP to separate the cubes within the cluster
                 max_iter = 10
                 count = 0
                 cubes = []
+                
+                base_detected = False
                 while np.asarray(cube.points).shape[0] > self.icp_min_points and count < max_iter:
                     count += 1
                     # ICP
@@ -163,12 +167,25 @@ class PCPerception():
                             layer = 1
                         if count == 2:
                             break
+                    elif j == 0 and len(positions) == 0 and not base_detected:
+                        #print(len(cube.points))
+                        if len(cube.points) > 450:
+                            cube_count = 3
+                            odom = cube.get_center()
+                            break
+                        elif len(cube.points) > 300:
+                            cube_count = 2
+                            odom = np.array(cube.get_center()) + np.array([0, 0.0225, 0])
+                            print(odom)
+                            break
+                    """
                     elif j == 0 and len(positions) == 0:
                         cubes.append(pos)
                         if len(cubes) > len(base_candidates) and self.check_cube_distance(cubes, 0.06):
                             base_candidates = cubes
                         if count == 3:
                             break
+                    
                     elif j == 0 and len(positions) > 0:
                         #print("H")
                         cubes.append(pos)
@@ -176,6 +193,7 @@ class PCPerception():
                             base_candidates = cubes
                         if count == 3:
                             break
+                    """
                         
                     #self.publish_odometry(pos, rot, self.world_frame, self.world_frame, cube_count)
 
@@ -208,11 +226,14 @@ class PCPerception():
                     self.publish_odometry(positions[0]-np.array([0,0.0225,0.045]), self.world_frame)
                 break
             elif layer == 0:
-                cube_count = len(base_candidates)
+                #cube_count = len(base_candidates)
+                """
                 if len(base_candidates) > 2:
                     self.publish_odometry((np.asarray(base_candidates[0])+np.asarray(base_candidates[1])+np.asarray(base_candidates[2]))/3, self.world_frame)
                 elif len(base_candidates) > 1:
                     self.publish_odometry(base_candidates[0], self.world_frame) if np.linalg.norm(np.array(base_candidates[0])) < np.linalg.norm(np.array(base_candidates[1])) else self.publish_odometry(base_candidates[1], self.world_frame)
+                """
+                self.publish_odometry(odom, self.world_frame)
         #colors = plt.get_cmap("tab20")(labels / (max_label if max_label > 0 else 1))
         #colors[labels < 0] = 0
         #outlier_cloud.colors = o3d.utility.Vector3dVector(colors[:, :3])

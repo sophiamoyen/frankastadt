@@ -56,6 +56,7 @@ class Scan(smach.State):
 
     # Getting number of detected cubes
     num_cubes = int(rospy.get_param("num_cubes"))
+    print("Estimated number of cubes: ", num_cubes)
 
     # Getting the poses of the detected cubes in a list
     cubes_poses, cubes_ids, cubes_yaws = self.tower.get_detected_cubes(num_cubes, center_pose_tower, tower_state)

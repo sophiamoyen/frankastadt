@@ -22,7 +22,7 @@ class PCPerception():
     def __init__(self):
 
         # Set the work environment
-        self.work_environment = "gazebo"
+        self.work_environment = "real"
         self.using_icp = True
         self.single_perception = False
         self.first_perception_done = False
@@ -147,8 +147,6 @@ class PCPerception():
         for i in range(max_label + 1):
             #print(f"Cluster {i}: {np.count_nonzero(labels == i)} points")
             cube = outlier_cloud.select_by_index(np.where(labels == i)[0])
-            print(cube.get_center())
-            print(self.pyramid_odom.x, self.pyramid_odom.y)
             if self.pyramid_odom is not None:
                 if np.abs(cube.get_center()[0] - self.pyramid_odom.x) < 0.0225 and np.abs(cube.get_center()[1] - self.pyramid_odom.y) < 0.1:
                     continue

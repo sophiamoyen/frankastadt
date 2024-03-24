@@ -4,8 +4,9 @@ from nav_msgs.msg import Odometry
 from std_msgs.msg import String
 
 def callback(data):
-
-    index=data.child_frame_id[-1]
+    #index=data.child_frame_id[-1]
+    index=data.child_frame_id.split("_")[-1]
+    print("Index of cube: ",index)
     rospy.set_param("cube_"+str(index)+"_x",data.pose.pose.position.x)
     rospy.set_param("cube_"+str(index)+"_y",data.pose.pose.position.y)
     rospy.set_param("cube_"+str(index)+"_z",data.pose.pose.position.z)
@@ -65,3 +66,5 @@ def listener():
 
 if __name__ == '__main__':
     listener()
+    #rospy.spin()
+

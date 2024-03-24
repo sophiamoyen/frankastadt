@@ -54,7 +54,7 @@ class CubeFusion:
 
     def callbackPC(self, data):
         #NUM_OF_CUBES = int(rospy.get_param("num_cubes"))
-        id = data.child_frame_id[-1]
+        id = data.child_frame_id.split("_")[-1]
         #rospy.loginfo("PC "+ id)
 
         x = data.pose.pose.position.x
@@ -70,7 +70,7 @@ class CubeFusion:
 
     def callbackED(self, data):
         #NUM_OF_CUBES = int(rospy.get_param("num_cubes"))
-        id = data.child_frame_id[-1]
+        id = data.child_frame_id.split("_")[-1]
         #rospy.loginfo("ED "+ id)
 
         x = data.pose.pose.position.x
@@ -211,31 +211,7 @@ class CubeFusion:
             cube_publisher = rospy.Publisher("cube_{}_odom".format(cube.id), Odometry, queue_size=10)
             cube_publisher.publish(cube_odom)
 
-        self.matched_cubes.clear()
-
-    def publisher(self):
-        try:
-            # Publish cubes with different topic names
-            for i in range(6):  # Assuming you want to publish 28 cubes                
-                cube_odom = Odometry()
-                # Populate cube_odom message with necessary data, assuming you have them stored in parameters
-                cube_odom.header.frame_id = "world"
-                cube_odom.child_frame_id = "cube_{}".format(i)
-                cube_odom.pose.pose.position.x = rospy.get_param("cube_"+str(i)+"_x", default=0)
-                cube_odom.pose.pose.position.y = rospy.get_param("cube_"+str(i)+"_y", default=0)
-                cube_odom.pose.pose.position.z = rospy.get_param("cube_"+str(i)+"_z", default=0)
-                cube_odom.pose.pose.orientation.x = rospy.get_param("cube_"+str(i)+"_orient_x", default=0)
-                cube_odom.pose.pose.orientation.y = rospy.get_param("cube_"+str(i)+"_orient_y", default=0)
-                cube_odom.pose.pose.orientation.z = rospy.get_param("cube_"+str(i)+"_orient_z", default=0)
-                cube_odom.pose.pose.orientation.w = rospy.get_param("cube_"+str(i)+"_orient_w", default=0)
-                # Publish cube_odom message
-                topic_name = "cube_" + str(i) + "_odom"
-                rospy.loginfo("Publishing " + topic_name)
-                pub = rospy.Publisher(topic_name, Odometry, queue_size=10)
-                pub.publish(cube_odom)
-        except Exception as e:
-            print(e)
-        
+        self.matched_cubes.clear()        
 
 
 if __name__ == '__main__':
