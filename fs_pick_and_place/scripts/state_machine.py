@@ -196,9 +196,10 @@ class PlanTower(smach.State):
         break
 
       else:
+        cube_id = ids.index(closest_cube_id)
         ids.remove(closest_cube_id)
         poses.remove(closest_cube_pose)
-        yaws.pop(closest_cube_id)
+        yaws.pop(cube_id)
 
     
     if placement_possible == False:
