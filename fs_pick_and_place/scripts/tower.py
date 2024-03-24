@@ -21,18 +21,31 @@ class Tower():
         self.scenario = scenario
         
         
-    def get_detected_cubes(self, num_cubes):
+    def get_detected_cubes(self, num_cubes, center_pose_tower, tower_state):
         cubes_poses = []
         cubes_yaws = []
         cubes_ids = []
+
+        if tower_state>1:
+            tower_up_x = center_pose_tower+0.0275
+            tower_down_x = center_pose_tower-0.0275
+            tower_left_y = center_pose_tower+0.0725
+            tower_right_y = center_pose_tower-0.0725
 
         for i in range(num_cubes):
             cube_pose = [rospy.get_param("cube_{}_x".format(i)),
                         rospy.get_param("cube_{}_y".format(i)),
                         self.convert_orientation(rospy.get_param("cube_{}_orient_z".format(i)))]
-            cubes_yaws.append(rospy.get_param("cube_{}_orient_z".format(i)))
-            cubes_poses.append(cube_pose)
-            cubes_ids.append(int(i))
+            
+            if tower_state>1 and cube_pose[0]<tower_up_x and cube_pose[0]>tower_down_x and cube_pose[1]<tower_left_y and cube_pose[1]>tower_right_y:
+                print("--------- Removing tower cube from detection ---------")
+
+            else:
+                cubes_yaws.append(rospy.get_param("cube_{}_orient_z".format(i)))
+                cubes_poses.append(cube_pose)
+                cubes_ids.append(int(i))
+
+
         
         return cubes_poses, cubes_ids, cubes_yaws
 
