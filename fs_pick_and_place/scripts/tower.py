@@ -8,7 +8,9 @@ import geometry_msgs.msg
 import matplotlib.pyplot as plt
 import math
 import matplotlib.patches as patches
-import sys
+import tkinter as tk
+from tkinter import messagebox
+
 
 class Tower():
     def __init__(self, cube_size=0.045, lim_x=[0.10,0.80], lim_y=[-0.50,0.50], desired_center= [0.55,0],scenario="real"):
@@ -397,6 +399,11 @@ class Tower():
         pick_orientation=quaternion_from_euler(ori[0],ori[1],ori[2],'sxyz')
 
         return pick_orientation
+    
+    def popup(title="", sentence=""):
+
+        tk.Tk().withdraw()
+        messagebox.showinfo(title=title, message=sentence)
 
         
     def stack(self, place_position, pick_position, pick_orientation=[0.9239002820650952,-0.3826324133679813, -0.000784053224384248, 0.00030050087016984296]):
