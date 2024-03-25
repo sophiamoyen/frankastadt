@@ -256,6 +256,7 @@ class CubesCheck(smach.State):
 
     else:
       # DO!!! Substitute the cubes poses from the new scan
+      self.tower.popup("Cubes Check Success","Cubes are in the smae place.")
       outcome = 'pre_check_success'
 
     return outcome
@@ -384,6 +385,7 @@ class PlaceAndCheck(smach.State):
     userdata.tower_state = userdata.tower_state + 1
 
     if userdata.tower_state == tower_state or (userdata.tower_state < 2 and tower_state < 2):
+      self.tower.popup("Success","Tower looks amazing. Expected {} cubes and got {}".format(userdata.tower_state, tower_state))
       if tower_state == 6:
         outcome = 'tower_built'
 

@@ -31,13 +31,13 @@ class Gripper:
         return self.gripper_move_result.result.success
         
 
-    def grasp(self, finger1_y, finger2_y):
+    def grasp(self):
         
         gripper_data = GraspActionGoal()
-        gripper_data.goal.width = finger1_y+finger2_y
+        gripper_data.goal.width = 0.045
         gripper_data.goal.epsilon.inner = 0.1
         gripper_data.goal.epsilon.outer = 0.1
-        gripper_data.goal.force = 2.0
+        gripper_data.goal.force = 10.0
         gripper_data.goal.speed = 0.1
 
         rospy.loginfo("Executing grasp Width:%f, Force:%f", gripper_data.goal.width, gripper_data.goal.force)

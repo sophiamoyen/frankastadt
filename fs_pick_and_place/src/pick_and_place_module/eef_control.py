@@ -25,7 +25,7 @@ class MoveGroupControl:
 
         group_name = "panda_arm"
         move_group = moveit_commander.MoveGroupCommander(group_name)
-        move_group.set_max_velocity_scaling_factor(1)
+        move_group.set_max_velocity_scaling_factor(0.8)
         planning_frame = move_group.get_planning_frame()
         # rospy.loginfo(" Planning frame: %s", planning_frame)
 

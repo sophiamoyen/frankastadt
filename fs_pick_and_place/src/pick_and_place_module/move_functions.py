@@ -39,7 +39,7 @@ class PlanAndMove:
         rospy.sleep(2)
 
         # Close gripper
-        result_grasp = self.gripper.grasp(0.01, 0.01)
+        result_grasp = self.gripper.grasp()
         rospy.sleep(2)
 
         if result_grasp == True:
