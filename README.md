@@ -4,6 +4,10 @@ This repository was developed for the Project Lab "Intelligent Robotic Manipulat
 
 ![alt text](images/recovery.gif)
 
+<p align="center">
+  <img width="460" height="300" src="https://picsum.photos/460/300">
+</p>
+
 ![Alt text](images/resume_tower.png)
 
 ![Alt text](images/checks.png)
@@ -71,7 +75,7 @@ To run the code in simulation, you will need to have the [`franka_zed_gazebo`](h
 
 This project was developed by Sophia Moyen, Marvin Heidinger, Tessa Wlodarczak & Vojin Vlacic with guidance from Sohan Rundra and Jiayun. The whole project was overseen by prof.Georgia Chalvatzaki.
 
-![alt text](images/team.png)
+![alt text](images/team.jpg)
 
 
 
