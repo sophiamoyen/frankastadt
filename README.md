@@ -2,10 +2,9 @@
 
 This repository was developed for the Project Lab "Intelligent Robotic Manipulation" from the Computer Science Department, offered by the Pearl Lab at Technische Universität Darmstadt. The purpose of the project was to make the Franka Panda robot build a tower of cubes with pick and place. The challenges included a good 3D pose estimation of the cubes as well as good recovery features after human interferences. All code was developed in Python and run with ROS Noetic. The camera used was the ZED2 and the estimation was made using pointcloud as well as RGBD. For the planning, we implemented a state machine that allows the robot to replan if the cubes change place on the table or if the tower gets destroyed midway. For more information, you can check our final report.
 
-![alt text](images/recovery.gif)
 
 <p align="center">
-  <img width="460" height="300" src="https://picsum.photos/460/300">
+  <img width="460" height="300" src="images/recovery.gif">
 </p>
 
 ![Alt text](images/resume_tower.png)
