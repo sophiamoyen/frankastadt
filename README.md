@@ -79,7 +79,7 @@ To run the code in simulation, you will need to have the [`franka_zed_gazebo`](h
 
 ## The team
 
-This project was developed by Sophia Moyen, Marvin Heidinger, Tessa Wlodarczak & Vojin Vlacic with guidance from Sohan Rundra and Jiayun. The whole project was overseen by prof.Georgia Chalvatzaki.
+This project was developed by Sophia Moyen, Marvin Heidinger, Tessa Wlodarczak & Vojin Vlacic with guidance from Sohan Rundra and Jiayun Li. The whole project was overseen by prof.Georgia Chalvatzaki.
 
 <p align="center">
   <img src="images/team.jpg" width="500"/>
