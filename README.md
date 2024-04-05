@@ -10,6 +10,13 @@ This repository was developed for the Project Lab "Intelligent Robotic Manipulat
   <img src="images/checks.png" width="400"/>
 </p>
 
+## State machine
+
+THe state machine was designed suing the `smach` package. It requires a remapping of the data flow between states that are indicated with blue arrows. The transitions are indicated with green arrows.
+
+<p align="center">
+  <img src="images/state_machine.png" width="500"/>
+</p>
 
 ## Docker
 A Docker with all the necessary packages for runnnig the code in simlation. Some necessary packages include `smach`,`libfranka`,`franka_ros`, `panda_moveit_config`, Matplotlib, OpenCV, Open3D, etc:
