@@ -1,14 +1,66 @@
 # Frankastadt
 
-To launch the pick and place
+This repository was developed for the Project Lab "Intelligent Robotic Manipulation" from the Computer Science Department, offered by the Pearl Lab at Technische Universität Darmstadt. The purpose of the project was to make the Franka Panda robot build a tower of cubes with pick and place. The challenges included a good 3D pose estimation of the cubes as well as good recovery features after human interferences. All code was developed in Python and run with ROS Noetic.
+
+## Docker
+A Docker with all the necessary packages for runnnig the code in simlation. Some necessary packages include `smach`,`libfranka`,`franka_ros`, `panda_moveit_config`, Matplotlib, OpenCV, Open3D, etc:
+
 ```
-rosrun fs_pick_and_place pick_box.py
+docker pull sophiamoyen/frankastadt:simulation
 ```
 
-To launch the point cloud algorithm
+For running the code on the real robot, a different base image with CUDA is needed in order to use the ZED2 camera. Some additional packages may need to be installed:
+
 ```
-rosrun perception pc_perception.py
+docker pull 3liyounes/pearl_robots:franka
 ```
+
+> [!NOTE]
+> For installing docker, you can follow the [Pearl Lab instructions](https://github.com/iROSA-lab/Docker_env)
+
+>[!HINT]
+> Remember to allow any external programm X11 to access the GUI: 
+> ```
+> xhost +
+> ```
+
+## Real Robot
+Once the robot has the FCI activated and is in execution mode, you can launch it with transformation for the camera with:
+
+```
+roslaunch  fs_pick_and_place robot_camera.launch
+```
+
+Then you can make the robot go to standard pose:
+
+``` 
+rosrun fs_pick_and_place standard_pose.py
+```
+
+Now that the robot has a good view of the scene, we can launch the perception pipeline:
+```
+roslaunch fs_pick_and_place perception.launch
+```
+
+Finally you can run the state machine, sit and enjoy the show:
+```
+rosrun fs_pick_and_place state_machine.py
+```
+
+>[!HINT]
+> You can visualize the state machine in real time running: 
+> ```
+> rosrun smach_viewer smach_viewer.py
+> ```
+
+>[!WARNING]
+> Remember to keep the emergency button close at all time
+
+
+## Simulation
+
+To run the code in simulation, you will need to have the `franka_zed_gazebo` package to launch the robot, the camera and the cubes. On top of the `edge_detection.py`,`tower.py` and `pc_perception.py`, a hyperparamter for running in simulation has to be changed. Then you can follow the same instructions as in the real robot.
+
 
 Sources:
 <ul>
