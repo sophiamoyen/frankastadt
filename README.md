@@ -6,7 +6,7 @@ This repository was developed for the Project Lab "Intelligent Robotic Manipulat
   <img width="460" height="300" src="images/recovery.gif">
 </p>
 
-<img src="images/recovery.gif" width="425"/> <img src="images/recovery.gif" width="425"/> 
+<img src="images/recovery.gif" width="300"/> <img src="images/recovery.gif" width="300"/> 
 
 ![Alt text](images/resume_tower.png)
 
