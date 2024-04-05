@@ -15,7 +15,7 @@ This repository was developed for the Project Lab "Intelligent Robotic Manipulat
 THe state machine was designed suing the `smach` package. It requires a remapping of the data flow between states that are indicated with blue arrows. The transitions are indicated with green arrows.
 
 <p align="center">
-  <img src="images/state_machine.png" width="500"/>
+  <img src="images/state_machine.png" width="700"/>
 </p>
 
 ## Docker
