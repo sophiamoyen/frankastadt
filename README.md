@@ -2,7 +2,11 @@
 
 This repository was developed for the Project Lab "Intelligent Robotic Manipulation" from the Computer Science Department, offered by the Pearl Lab at Technische Universität Darmstadt. The purpose of the project was to make the Franka Panda robot build a tower of cubes with pick and place. The challenges included a good 3D pose estimation of the cubes as well as good recovery features after human interferences. All code was developed in Python and run with ROS Noetic. The camera used was the ZED2 and the estimation was made using pointcloud as well as RGBD. For the planning, we implemented a state machine that allows the robot to replan if the cubes change place on the table or if the tower gets destroyed midway. For more information, you can check our final report.
 
+![alt text](images/recovery.gif)
 
+![Alt text](images/resume_tower.png)
+
+![Alt text](images/checks.png)
 
 ## Docker
 A Docker with all the necessary packages for runnnig the code in simlation. Some necessary packages include `smach`,`libfranka`,`franka_ros`, `panda_moveit_config`, Matplotlib, OpenCV, Open3D, etc:
@@ -61,10 +65,13 @@ rosrun fs_pick_and_place state_machine.py
 
 ## Running in simulation
 
-To run the code in simulation, you will need to have the `franka_zed_gazebo` package to launch the robot, the camera and the cubes. On top of the `edge_detection.py`,`tower.py` and `pc_perception.py`, a hyperparamter for running in simulation has to be changed. Then you can follow the same instructions as in the real robot.
+To run the code in simulation, you will need to have the [`franka_zed_gazebo`](https://github.com/iROSA-lab/franka_zed_gazebo) package to launch the robot, the camera and the cubes. On top of the `edge_detection.py`,`tower.py` and `pc_perception.py`, a hyperparamter for running in simulation has to be changed. Then you can follow the same instructions as in the real robot.
 
 ## The team
 
+This project was developed by Sophia Moyen, Marvin Heidinger, Tessa Wlodarczak & Vojin Vlacic with guidance from Sohan Rundra and Jiayun. The whole project was overseen by prof.Georgia Chalvatzaki.
+
+![alt text](images/team.png)
 
 
 
