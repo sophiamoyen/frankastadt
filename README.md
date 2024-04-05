@@ -56,7 +56,7 @@ rosrun fs_pick_and_place state_machine.py
 > ```
 
 >[!WARNING]
-> Remember to keep the emergency button close at all time
+> Remember to keep the emergency button close at all times
 
 
 ## Running in simulation
